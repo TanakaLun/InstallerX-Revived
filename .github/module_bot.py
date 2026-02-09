@@ -1,7 +1,7 @@
-from telethon import TelegramClient, sessions
 import asyncio
 import os
 import sys
+from telethon import TelegramClient
 
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
@@ -9,61 +9,52 @@ BOT_TOKEN = os.environ.get("BOTTOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 MESSAGE_THREAD_ID = os.environ.get("MSGID")
 
-async def send_telegram_files(files):
-    if not CHAT_ID:
-        print("[-] CHAT_ID is missing")
-        return
+def check_environ():
+    global CHAT_ID, MESSAGE_THREAD_ID
+    if BOT_TOKEN is None:
+        print("[-] Invalid BOT_TOKEN")
+        exit(1)
 
-
-    try:
-        raw_id = str(CHAT_ID).strip()
-        if not raw_id.startswith("-100"):
-            if raw_id.startswith("-"):
-                target_chat = int(f"-100{raw_id[1:]}")
-            else:
-                target_chat = int(f"-100{raw_id}")
-        else:
-            target_chat = int(raw_id)
-            
-        print(f"[+] Final Target ID: {target_chat}")
-    except ValueError:
-        print(f"[-] Invalid CHAT_ID format: {CHAT_ID}")
-        return
-
-    topic_id = None
-    if MESSAGE_THREAD_ID and str(MESSAGE_THREAD_ID).strip():
+    if CHAT_ID is not None:
         try:
-            topic_id = int(str(MESSAGE_THREAD_ID).strip())
-            print(f"[+] Sending to Topic: {topic_id}")
-        except ValueError:
-            print("[-] Invalid MESSAGE_THREAD_ID, sending to main channel.")
+            CHAT_ID = int(CHAT_ID)
+        except:
+            pass
 
-    session = sessions.StringSession()
-
-    async with TelegramClient(session, api_id=int(API_ID), api_hash=API_HASH) as client:
-        await client.start(bot_token=BOT_TOKEN)
-        
+    if MESSAGE_THREAD_ID and MESSAGE_THREAD_ID != "":
         try:
-            entity = await client.get_input_entity(target_chat)
-        except Exception as e:
-            print(f"[!] Entity resolution failed, using raw ID: {e}")
-            entity = target_chat
-
-        print(f"[+] Sending {len(files)} files...")
-        
-        await client.send_file(
-            entity=entity,
-            file=files,
-            reply_to=topic_id
-        )
-        print("[+] Files sent successfully.")
-
-if __name__ == '__main__':
-    file_list = sys.argv[1:]
-    if file_list:
-        try:
-            asyncio.run(send_telegram_files(file_list))
-        except Exception as e:
-            print(f"[-] An error occurred: {e}")
+            MESSAGE_THREAD_ID = int(MESSAGE_THREAD_ID)
+        except:
+            MESSAGE_THREAD_ID = None
     else:
-        print("[-] No files provided as arguments.")
+        MESSAGE_THREAD_ID = None
+
+async def main():
+    check_environ()
+    files = sys.argv[1:]
+    
+    if not files:
+        print("[-] No files to upload")
+        exit(1)
+
+    print("[+] Logging in Telegram with bot")
+    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    session_dir = os.path.join(script_dir, "module_send_session")
+
+    client = TelegramClient(session=session_dir, api_id=API_ID, api_hash=API_HASH)
+    async with await client.start(bot_token=BOT_TOKEN) as bot:
+        print(f"[+] Sending {len(files)} files to {CHAT_ID} (Topic: {MESSAGE_THREAD_ID})")
+        
+        await bot.send_file(
+            entity=CHAT_ID,
+            file=files,
+            reply_to=MESSAGE_THREAD_ID,
+            parse_mode="markdown"
+        )
+        print("[+] Done!")
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"[-] An error occurred: {e}")
