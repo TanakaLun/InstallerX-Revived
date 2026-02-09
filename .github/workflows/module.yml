@@ -3,15 +3,19 @@ name: Module Build
 on:
   push:
   workflow_dispatch:
+
 env:
   GITHUB_ACTOR: ${{ github.actor }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  UPSTREAM_REPO: "https://github.com/wxxsfxyzm/InstallerX-Revived"
+
 jobs:
   build_magisk_module:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,27 +35,55 @@ jobs:
         run: |
           echo "${{ secrets.PASSWORD }}" | base64 -d > keystore.properties
           echo "${{ secrets.KEY }}" | base64 -d > TanakaLun.keystore
-          chmod 777 keystore.properties TanakaLun.keystore
+          chmod 600 keystore.properties TanakaLun.keystore
 
-      - name: Build and Package
-        id: build_assets
+      - name: Calculate Version (Sync with Upstream)
+        id: version
+        run: |
+          UPSTREAM_COUNT=$(git ls-remote --refs $UPSTREAM_REPO | grep 'refs/heads/main' | cut -f1 | xargs -I {} git rev-list --count {})
+          if [ -z "$UPSTREAM_COUNT" ]; then UPSTREAM_COUNT=$(git rev-list --count HEAD); fi
+          
+          BASE_VERSION=$(./gradlew -q properties | grep '^BASE_VERSION:' | awk '{print $2}')
+          NEW_VERSION="${BASE_VERSION}.${UPSTREAM_COUNT}"
+          
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "BUILD_TIME=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+          echo "Generated Version: $NEW_VERSION"
+
+      - name: Build APK
         run: |
           chmod +x ./gradlew
           ./gradlew assembleOnlinePreviewRelease -PVERSION_NAME="${{ env.NEW_VERSION }}" -PAPP_ID="com.android.packageinstaller"
-          APK_PATH=$(find app/build/outputs/apk/onlinePreview/release -name "*.apk" | head -n 1)
-          # ZIP_PATH="InstallerX-Revived-Online.zip"
+
+      - name: Prepare Magisk Module
+        id: package
+        run: |
+          git clone https://github.com/TanakaLun/InxR.git module_temp
+          cd module_temp
+          rm -rf .git
+
+          TARGET_DIR="system/priv-app/OppoPackageInstaller"
+          mkdir -p "$TARGET_DIR"
           
-          echo "apk=$APK_PATH" >> $GITHUB_OUTPUT
-          # echo "zip=$ZIP_PATH" >> $GITHUB_OUTPUT
+          ORIGINAL_APK=$(find ../app/build/outputs/apk/onlinePreview/release -name "*.apk" | head -n 1)
+          cp "$ORIGINAL_APK" "$TARGET_DIR/OppoPackageInstaller.apk"
+          
+          ZIP_NAME="InxR-Module-${{ env.NEW_VERSION }}.zip"
+          zip -r "../$ZIP_NAME" ./*
+          
+          cd ..
+          echo "module_zip=$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "standalone_apk=$ORIGINAL_APK" >> $GITHUB_OUTPUT
 
       - name: Send to Telegram
         run: |
-          export API_ID=$(grep 'API_ID' keystore.properties | cut -d'=' -f2)
-          export API_HASH=$(grep 'API_HASH' keystore.properties | cut -d'=' -f2)
-          export BOTTOKEN=$(grep 'BOTTOKEN' keystore.properties | cut -d'=' -f2)
-          export CHAT_ID=$(grep 'CHAT_ID' keystore.properties | cut -d'=' -f2)
-          export MSGID=$(grep 'MSGID' keystore.properties | cut -d'=' -f2)
-          
+          export API_ID=$(grep 'API_ID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          export API_HASH=$(grep 'API_HASH' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          export BOTTOKEN=$(grep 'BOTTOKEN' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          export CHAT_ID=$(grep 'CHAT_ID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          export MSGID=$(grep 'MSGID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+
           pip3 install telethon
           python3 .github/module_bot.py \
-            "${{ steps.build_assets.outputs.apk }}"
+            "${{ steps.package.outputs.module_zip }}" \
+            "${{ steps.package.outputs.standalone_apk }}"
