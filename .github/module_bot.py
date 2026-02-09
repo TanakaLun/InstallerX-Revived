@@ -10,43 +10,60 @@ CHAT_ID = os.environ.get("CHAT_ID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
 
 async def send_telegram_files(files):
-    """
-    Connects to Telegram and sends the specified files as a group message.
-    """
+    if not CHAT_ID:
+        print("[-] CHAT_ID is missing")
+        return
+
+
     try:
-        target_chat = int(CHAT_ID)
-    except (ValueError, TypeError):
-        print(f"[-] Invalid CHAT_ID: {CHAT_ID}")
+        raw_id = str(CHAT_ID).strip()
+        if not raw_id.startswith("-100"):
+            if raw_id.startswith("-"):
+                target_chat = int(f"-100{raw_id[1:]}")
+            else:
+                target_chat = int(f"-100{raw_id}")
+        else:
+            target_chat = int(raw_id)
+            
+        print(f"[+] Final Target ID: {target_chat}")
+    except ValueError:
+        print(f"[-] Invalid CHAT_ID format: {CHAT_ID}")
         return
 
     topic_id = None
-    if MESSAGE_THREAD_ID and MESSAGE_THREAD_ID.strip():
+    if MESSAGE_THREAD_ID and str(MESSAGE_THREAD_ID).strip():
         try:
-            topic_id = int(MESSAGE_THREAD_ID)
-            print(f"[+] Targeting Topic ID: {topic_id}")
+            topic_id = int(str(MESSAGE_THREAD_ID).strip())
+            print(f"[+] Sending to Topic: {topic_id}")
         except ValueError:
-            print(f"[-] Invalid MESSAGE_THREAD_ID: {MESSAGE_THREAD_ID}, sending to main channel instead.")
+            print("[-] Invalid MESSAGE_THREAD_ID, sending to main channel.")
 
-    session = sessions.StringSession() 
+    session = sessions.StringSession()
 
-    async with TelegramClient(session, api_id=API_ID, api_hash=API_HASH) as client:
+    async with TelegramClient(session, api_id=int(API_ID), api_hash=API_HASH) as client:
         await client.start(bot_token=BOT_TOKEN)
+        
+        try:
+            entity = await client.get_input_entity(target_chat)
+        except Exception as e:
+            print(f"[!] Entity resolution failed, using raw ID: {e}")
+            entity = target_chat
 
-        print(f"[+] Sending {len(files)} files as a group...")
+        print(f"[+] Sending {len(files)} files...")
+        
         await client.send_file(
-            entity=target_chat,
+            entity=entity,
             file=files,
             reply_to=topic_id
         )
         print("[+] Files sent successfully.")
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        apk_files = sys.argv[1:]
-        print(f"[+] Found files to upload: {apk_files}")
+    file_list = sys.argv[1:]
+    if file_list:
         try:
-            asyncio.run(send_telegram_files(apk_files))
+            asyncio.run(send_telegram_files(file_list))
         except Exception as e:
             print(f"[-] An error occurred: {e}")
     else:
-        print("[-] No file paths provided as arguments.")
+        print("[-] No files provided as arguments.")
