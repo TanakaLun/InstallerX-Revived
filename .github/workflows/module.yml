@@ -1,13 +1,18 @@
-name: Magisk Module Build
+name: Module Build
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
-
+env:
+  GITHUB_ACTOR: ${{ github.actor }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
   build_magisk_module:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
