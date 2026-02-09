@@ -5,9 +5,9 @@ import sys
 
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.environ.get("BOTTOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
-MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
+MESSAGE_THREAD_ID = os.environ.get("MSGID")
 
 async def send_telegram_files(files):
     if not CHAT_ID:
