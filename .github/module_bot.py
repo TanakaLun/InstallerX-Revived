@@ -5,48 +5,45 @@ import sys
 
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.environ.get("BOTTOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
-MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
+MESSAGE_THREAD_ID = os.environ.get("MSGID")
+VERSION = os.environ.get("NEW_VERSION", "Unknown")
+BUILD_TIME = os.environ.get("BUILD_TIME", "Unknown")
 
-async def send_telegram_files(files):
-    """
-    Connects to Telegram and sends the specified files as a group message.
-    """
-    try:
-        target_chat = int(CHAT_ID)
-    except (ValueError, TypeError):
-        print(f"[-] Invalid CHAT_ID: {CHAT_ID}")
+async def main():
+    files = [os.path.abspath(f) for f in sys.argv[1:] if os.path.exists(f)]
+    if not files:
+        print("[-] No files to upload")
         return
 
-    topic_id = None
-    if MESSAGE_THREAD_ID and MESSAGE_THREAD_ID.strip():
-        try:
-            topic_id = int(MESSAGE_THREAD_ID)
-            print(f"[+] Targeting Topic ID: {topic_id}")
-        except ValueError:
-            print(f"[-] Invalid MESSAGE_THREAD_ID: {MESSAGE_THREAD_ID}, sending to main channel instead.")
+    caption = (
+        f"✅ **Build Completed**\n\n"
+        f"📱 **Module:** InstallerX Revived\n"
+        f"🔢 **Version:** `{VERSION}`\n"
+        f"⏰ **Time:** `{BUILD_TIME}`\n\n"
+        f"#Module #Update"
+    )
 
-    session = sessions.StringSession() 
+    print(f"[+] Logging in and sending {len(files)} files...")
+    
+    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    session_dir = os.path.join(script_dir, "module_send_session")
 
-    async with TelegramClient(session, api_id=API_ID, api_hash=API_HASH) as client:
-        await client.start(bot_token=BOT_TOKEN)
-
-        print(f"[+] Sending {len(files)} files as a group...")
-        await client.send_file(
-            entity=target_chat,
+    client = TelegramClient(session=session_dir, api_id=API_ID, api_hash=API_HASH)
+    
+    async with await client.start(bot_token=BOT_TOKEN) as bot:
+        await bot.send_file(
+            entity=int(CHAT_ID),
             file=files,
-            reply_to=topic_id
+            caption=caption,
+            reply_to=int(MESSAGE_THREAD_ID) if MESSAGE_THREAD_ID else None,
+            parse_mode="markdown"
         )
-        print("[+] Files sent successfully.")
+        print("[+] Success!")
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        apk_files = sys.argv[1:]
-        print(f"[+] Found files to upload: {apk_files}")
-        try:
-            asyncio.run(send_telegram_files(apk_files))
-        except Exception as e:
-            print(f"[-] An error occurred: {e}")
-    else:
-        print("[-] No file paths provided as arguments.")
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"[-] Error: {e}")
