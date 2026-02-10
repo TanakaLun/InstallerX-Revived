@@ -40,11 +40,14 @@ jobs:
       - name: Calculate Version (Sync with Upstream)
         id: version
         run: |
-          UPSTREAM_COUNT=$(git ls-remote --refs $UPSTREAM_REPO | grep 'refs/heads/main' | cut -f1 | xargs -I {} git rev-list --count {})
-          if [ -z "$UPSTREAM_COUNT" ]; then UPSTREAM_COUNT=$(git rev-list --count HEAD); fi
-          
-          BASE_VERSION=$(./gradlew -q properties | grep '^BASE_VERSION:' | awk '{print $2}')
-          NEW_VERSION="${BASE_VERSION}.${UPSTREAM_COUNT}"
+          VERSION=$(./gradlew -q properties | grep '^BASE_VERSION:' | awk '{print $2}' | tr -d '\r')
+          A=$(echo $VERSION | cut -d. -f1)
+          B=$(echo $VERSION | cut -d. -f2)
+          C=$(echo $VERSION | cut -d. -f3)
+          C_NEW=$((C + 1))
+          FULL_SHA=$(git ls-remote "$UPSTREAM_REPO" HEAD | awk '{print $1}')
+          SHORT_SHA=$(echo "$FULL_SHA" | cut -c1-7)
+          NEW_VERSION="${A}.${B}.${C_NEW}.${SHORT_SHA}"
           
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           echo "BUILD_TIME=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
