@@ -37,11 +37,13 @@ jobs:
           echo "${{ secrets.KEY }}" | base64 -d > TanakaLun.keystore
           chmod 600 keystore.properties TanakaLun.keystore
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+        
       - name: Calculate Version (Sync with Upstream)
         id: version
         run: |
           VERSION=$(./gradlew -q properties | grep '^BASE_VERSION:' | awk '{print $2}')
-          echo "$VERSION"
           A=$(echo $VERSION | cut -d. -f1)
           B=$(echo $VERSION | cut -d. -f2)
           C=$(echo $VERSION | cut -d. -f3)
@@ -56,7 +58,6 @@ jobs:
 
       - name: Build APK
         run: |
-          chmod +x ./gradlew
           ./gradlew assembleOnlinePreviewRelease -PVERSION_NAME="${{ env.NEW_VERSION }}" -PAPP_ID="com.android.packageinstaller"
 
       - name: Prepare Magisk Module
