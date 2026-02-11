@@ -67,13 +67,13 @@ jobs:
           cd module_temp
           rm -rf .git
 
-          TARGET_DIR="system/priv-app/OppoPackageInstaller"
+          TARGET_DIR="system/system_ext/priv-app/OppoPackageInstaller"
           mkdir -p "$TARGET_DIR"
           
           ORIGINAL_APK=$(find ../app/build/outputs/apk/onlinePreview/release -name "*.apk" | head -n 1)
           cp "$ORIGINAL_APK" "$TARGET_DIR/OppoPackageInstaller.apk"
           
-          ZIP_NAME="InxR-Module-${{ env.NEW_VERSION }}.zip"
+          ZIP_NAME="InxR-${{ env.NEW_VERSION }}.zip"
           zip -r "../$ZIP_NAME" ./*
           
           cd ..
