@@ -66,6 +66,7 @@ jobs:
         with:
           # dev 分支允许写入缓存
           cache-read-only: ${{ github.ref_name != 'dev' }}
+          cache-encryption-key: ${{ secrets.GRADLE_CACHE_ENCRYPTION_KEY }}
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
