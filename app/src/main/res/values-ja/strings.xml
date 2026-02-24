@@ -550,8 +550,6 @@
     <string name="extended_menu">拡張メニュー</string>
     <string name="auto_silent_install">自動サイレントインストール</string>
     <string name="auto_silent_install_desc">ダイアログインストール開始時に自動サイレントインストール</string>
-    <string name="disable_notification">インストール中にフォアグラウンドを維持する</string>
-    <string name="close_immediately_on_dialog_dismiss">インストール中はダイアログがフォアグラウンドのままになり、通知は表示されません</string>
     <string name="disable_notification_on_dismiss">ダイアログを閉じる</string>
     <string name="close_notification_immediately_on_dialog_dismiss">ダイアログを閉じると、何も表示されずに終了します</string>
     <string name="set_countdown">カウントダウンを設定</string>

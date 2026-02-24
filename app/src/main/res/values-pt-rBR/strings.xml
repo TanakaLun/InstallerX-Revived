@@ -316,8 +316,6 @@
     <string name="show_dialog_install_extended_menu">Mostrar menu estendido</string>
     <string name="show_dialog_install_extended_menu_desc">Mostrar mais opções na caixa de diálogo de instalação</string>
     <string name="extended_menu">Menu Extendido</string>
-    <string name="disable_notification">Instalação em primeiro plano sem notificação</string>
-    <string name="close_immediately_on_dialog_dismiss">A caixa de diálogo permanece em primeiro plano durante a instalação, clicar na área em branco fechará silenciosamente</string>
     <string name="disable_notification_on_dismiss">Fechar na caixa de diálogo Descartar</string>
     <string name="close_notification_immediately_on_dialog_dismiss">A caixa de diálogo de recusa sairá silenciosamente</string>
     <string name="set_countdown">Definir contagem regressiva</string>
