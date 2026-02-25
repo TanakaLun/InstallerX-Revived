@@ -274,8 +274,6 @@
     <string name="show_dialog_install_extended_menu">Mostrar menú extendido</string>
     <string name="show_dialog_install_extended_menu_desc">Mostrar más opciones en el diálogo de instalación</string>
     <string name="extended_menu">Menú extendido</string>
-    <string name="disable_notification">Mantener en primer plano durante la instalación</string>
-    <string name="close_immediately_on_dialog_dismiss">El diálogo permanece en primer plano durante la instalación, sin mostrar notificaciones</string>
     <string name="disable_notification_on_dismiss">Cerrar al descartar diálogo</string>
     <string name="close_notification_immediately_on_dialog_dismiss">Descartar el diálogo cerrará la app</string>
     <string name="set_countdown">Establecer cuenta regresiva</string>
