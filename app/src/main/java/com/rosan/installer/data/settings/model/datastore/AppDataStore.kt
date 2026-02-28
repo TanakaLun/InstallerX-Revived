@@ -33,6 +33,9 @@ class AppDataStore(
         // Show Live Activity
         val SHOW_LIVE_ACTIVITY = booleanPreferencesKey("show_live_activity")
 
+        // Show Mi Island
+        val SHOW_MI_ISLAND = booleanPreferencesKey("show_mi_island")
+
         // Use Biometric Auth Install
         val INSTALLER_REQUIRE_BIOMETRIC_AUTH = booleanPreferencesKey("installer_use_biometric_auth")
 

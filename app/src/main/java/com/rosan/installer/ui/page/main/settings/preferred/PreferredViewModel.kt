@@ -172,6 +172,7 @@ class PreferredViewModel(
             is PreferredViewAction.LabChangeRootShowModuleArt -> labChangeRootShowModuleArt(action.enable)
             is PreferredViewAction.LabChangeRootModuleAlwaysUseRoot -> labChangeRootModuleAlwaysUseRoot(action.enable)
             is PreferredViewAction.LabChangeRootImplementation -> labChangeRootImplementation(action.implementation)
+            is PreferredViewAction.LabChangeUseMiIsland -> labChangeUseMiIsland(action.enable)
             is PreferredViewAction.LabChangeHttpProfile -> labChangeHttpProfile(action.profile)
             is PreferredViewAction.LabChangeHttpSaveFile -> labChangeHttpSaveFile(action.enable)
             is PreferredViewAction.LabChangeSetInstallRequester -> labChangeSetInstallRequester(action.enable)
@@ -541,6 +542,11 @@ class PreferredViewModel(
             )
         }
 
+    private fun labChangeUseMiIsland(enabled: Boolean) =
+        viewModelScope.launch {
+            appDataStore.putBoolean(AppDataStore.SHOW_MI_ISLAND, enabled)
+        }
+
     private fun labChangeHttpProfile(profile: HttpProfile) =
         viewModelScope.launch {
             appDataStore.putString(AppDataStore.LAB_HTTP_PROFILE, profile.name)
@@ -743,6 +749,8 @@ class PreferredViewModel(
             val labRootImplementationFlow =
                 appDataStore.getString(AppDataStore.LAB_ROOT_IMPLEMENTATION)
                     .map { RootImplementation.fromString(it) }
+            val labUseMiIslandFlow =
+                appDataStore.getBoolean(AppDataStore.SHOW_MI_ISLAND, false)
             val labHttpProfileFlow =
                 appDataStore.getString(AppDataStore.LAB_HTTP_PROFILE)
                     .map { HttpProfile.fromString(it) }
@@ -804,6 +812,7 @@ class PreferredViewModel(
                 labRootShowModuleArtFlow,
                 labRootModuleAlwaysUseRootFlow,
                 labRootImplementationFlow,
+                labUseMiIslandFlow,
                 labHttpProfileFlow,
                 labHttpSaveFileFlow,
                 labSetInstallRequesterFlow,
@@ -856,6 +865,7 @@ class PreferredViewModel(
                 val labRootShowModuleArt = values[idx++] as Boolean
                 val labRootModuleAlwaysUseRoot = values[idx++] as Boolean
                 val labRootImplementation = values[idx++] as RootImplementation
+                val labUseMiIsland = values[idx++] as Boolean
                 val labHttpProfile = values[idx++] as HttpProfile
                 val labHttpSaveFile = values[idx++] as Boolean
                 val labSetInstallRequester = values[idx++] as Boolean
@@ -930,6 +940,7 @@ class PreferredViewModel(
                     labRootShowModuleArt = labRootShowModuleArt,
                     labRootModuleAlwaysUseRoot = labRootModuleAlwaysUseRoot,
                     labRootImplementation = labRootImplementation,
+                    labUseMiIsland = labUseMiIsland,
                     labHttpProfile = labHttpProfile,
                     labHttpSaveFile = labHttpSaveFile,
                     labSetInstallRequester = labSetInstallRequester,

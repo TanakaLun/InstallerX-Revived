@@ -22,6 +22,7 @@
     <string name="lab">实验室</string>
     <string name="lab_desc">访问实验性或开发中的新功能</string>
     <string name="about_detail">关于 InstallerX Revived</string>
+    <string name="app_version_info_format">%1$s%2$s %3$s (%4$s)</string>
     <string name="updating">正在更新…</string>
     <string name="get_update_detail">检查软件更新和新功能</string>
     <string name="update_available">有可用更新：%1$s</string>
@@ -444,6 +445,7 @@
     <string name="permission_unknown">未知权限</string>
     <string name="installer_running">InstallerX 运行中</string>
     <string name="installer_version_short">版本：%1$s (%2$s)</string>
+    <string name="version_with_prefix_format">%1$s%2$s</string>
     <string name="installer_version_name_label">版本名称：</string>
     <string name="installer_version_code_label">版本代码：</string>
     <string name="installer_version">版本：%1$s (%2$s)</string>
@@ -696,4 +698,6 @@
     <string name="lab_unstable_features">不稳定功能</string>
     <string name="lab_set_install_requester">设置安装请求方</string>
     <string name="lab_set_install_requester_desc">向安装会话填写 OriginatingUid 字段来记录发起安装的应用，匹配系统包管理器行为</string>
+    <string name="lab_mi_island">小米超级岛</string>
+    <string name="lab_mi_island_desc">覆盖全局通知样式。仅当应用授权器设置为 Shizuku 时可绕过系统签名限制；Root 用户在手动关闭系统签名验证后可直接开启</string>
 </resources>

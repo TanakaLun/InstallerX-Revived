@@ -118,7 +118,7 @@ object PackageManagerUtil {
     const val DELETE_FAILED_ABORTED = -5
     const val DELETE_FAILED_HYPEROS_SYSTEM_APP = -1000
 
-    fun installResultVerify(
+    suspend fun installResultVerify(
         context: Context,
         receiver: IBinderInstallerRepoImpl.LocalIntentReceiver
     ) {
@@ -189,7 +189,7 @@ object PackageManagerUtil {
      * @param receiver The LocalIntentReceiver that holds the result intent.
      * @throws Exception with a detailed custom exception if the operation failed.
      */
-    fun uninstallResultVerify(
+    suspend fun uninstallResultVerify(
         context: Context,
         receiver: IBinderInstallerRepoImpl.LocalIntentReceiver
     ) {

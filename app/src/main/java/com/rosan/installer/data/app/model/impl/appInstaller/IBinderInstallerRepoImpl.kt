@@ -41,12 +41,11 @@ import com.rosan.installer.util.OSUtils
 import com.rosan.installer.util.pm.isFreshInstallCandidate
 import com.rosan.installer.util.pm.isPackageArchivedCompat
 import com.rosan.installer.util.removeFlag
+import kotlinx.coroutines.channels.Channel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
 import timber.log.Timber
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
 
 abstract class IBinderInstallerRepoImpl : InstallerRepo, KoinComponent {
     private val context by inject<Context>()
@@ -378,7 +377,7 @@ abstract class IBinderInstallerRepoImpl : InstallerRepo, KoinComponent {
     }
 
     @SuppressLint("RequestInstallPackagesPolicy")
-    private fun commit(
+    private suspend fun commit(
         config: ConfigEntity,
         entities: List<InstallEntity>,
         extra: InstallExtraInfoEntity,
@@ -444,7 +443,9 @@ abstract class IBinderInstallerRepoImpl : InstallerRepo, KoinComponent {
     class LocalIntentReceiver : KoinComponent {
         private val reflect = get<ReflectRepo>()
 
-        private val queue = LinkedBlockingQueue<Intent>(1)
+        // Use a Channel with UNLIMITED capacity to safely queue multiple intents
+        // without dropping them or suspending the sender.
+        private val channel = Channel<Intent>(Channel.UNLIMITED)
 
         private val localSender = object : IIntentSender.Stub() {
             override fun send(
@@ -456,7 +457,10 @@ abstract class IBinderInstallerRepoImpl : InstallerRepo, KoinComponent {
                 requiredPermission: String?,
                 options: Bundle?
             ) {
-                queue.offer(intent, 5, TimeUnit.SECONDS)
+                // Null safety check, then send to the channel non-blockingly
+                if (intent != null) {
+                    channel.trySend(intent)
+                }
             }
         }
 
@@ -465,13 +469,12 @@ abstract class IBinderInstallerRepoImpl : InstallerRepo, KoinComponent {
                 IntentSender::class.java, IIntentSender::class.java
             )!!.newInstance(localSender) as IntentSender
 
-        fun getResult(): Intent =
-            try {
-                val result = queue.take()
-                queue.remove(result)
-                result
-            } catch (e: InterruptedException) {
-                throw RuntimeException(e)
-            }
+        /**
+         * Suspends the coroutine until an intent is received.
+         * This avoids physically blocking the underlying thread.
+         */
+        suspend fun getResult(): Intent {
+            return channel.receive()
+        }
     }
 }

@@ -260,4 +260,6 @@ dependencies {
     // monetcompat
     implementation(libs.monetcompat)
     implementation(libs.androidx.palette)
+
+    implementation(libs.focus.api)
 }

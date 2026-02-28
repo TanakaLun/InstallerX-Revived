@@ -44,6 +44,7 @@ data class PreferredViewState(
     val labRootImplementation: RootImplementation = RootImplementation.Magisk,
     val labRootShowModuleArt: Boolean = true,
     val labRootModuleAlwaysUseRoot: Boolean = false,
+    val labUseMiIsland: Boolean = false,
     val labHttpSaveFile: Boolean = false,
     val labHttpProfile: HttpProfile = HttpProfile.ALLOW_SECURE,
     val labSetInstallRequester: Boolean = false,
