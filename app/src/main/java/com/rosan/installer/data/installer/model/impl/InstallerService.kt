@@ -199,24 +199,22 @@ class InstallerService : Service() {
             .setOngoing(true)
             .build()
 
+        // Use 0 for API 33 and below to avoid manifest mismatch crashes.
+        // Android 14+ requires explicit foreground service types.
         val foregroundServiceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         } else {
             0
         }
 
-        try {
-            ServiceCompat.startForeground(
-                this,
-                NOTIFICATION_ID,
-                notification,
-                foregroundServiceType
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to start foreground service.")
-        }
+        // DO NOT wrap this in a try-catch block.
+        // Swallowing exceptions here breaks the OS contract and causes delayed, confusing timeout crashes.
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            notification,
+            foregroundServiceType
+        )
     }
 
     /**
@@ -235,7 +233,6 @@ class InstallerService : Service() {
 
         checkIdleState()
     }
-
 
     private fun createNotificationChannel() {
         val channel = NotificationChannelCompat.Builder(

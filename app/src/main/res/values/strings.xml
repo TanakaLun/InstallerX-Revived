@@ -24,6 +24,7 @@
     <string name="lab_desc">Access experimental and developer features</string>
     <string name="debug">Debug</string>
     <string name="about_detail">About InstallerX Revived</string>
+    <string name="app_version_info_format">%1$s %2$s %3$s (%4$s)</string>
     <string name="updating">Updating…</string>
     <string name="get_update">Get update</string>
     <string name="get_update_detail">Check for software updates and new features</string>
@@ -74,6 +75,8 @@
     <string name="theme_settings_theme_mode_system">Follow system theme</string>
     <string name="theme_settings_palette_style">Palette Style</string>
     <string name="theme_settings_palette_style_desc">Select palette style</string>
+    <string name="theme_settings_color_spec">Color Spec</string>
+    <string name="theme_settings_color_spec_only_2021">Current palette style only supports Spec 2021</string>
     <string name="theme_settings_dynamic_color">Dynamic Color</string>
     <string name="theme_settings_dynamic_color_desc">Theme color based on wallpaper</string>
     <string name="theme_settings_theme_color">Theme Color</string>
@@ -454,6 +457,7 @@
     <string name="permission_unknown">Unknown permission</string>
     <string name="installer_running">InstallerX running</string>
     <string name="installer_version_short">Ver. %1$s (%2$s)</string>
+    <string name="version_with_prefix_format">%1$s %2$s</string>
     <string name="installer_version_name_label">Version Name:</string>
     <string name="installer_version_code_label">Version Code:</string>
     <string name="installer_version">Version: %1$s (%2$s)</string>
@@ -712,4 +716,6 @@
     <string name="lab_unstable_features">Unstable features</string>
     <string name="lab_set_install_requester">Set Install Requester</string>
     <string name="lab_set_install_requester_desc">Fill OriginatingUid field with caller package to match system behavior</string>
+    <string name="lab_mi_island">Mi Super Island</string>
+    <string name="lab_mi_island_desc">Global notification style. System signature verification can only be bypassed when the custom app-authenticator is set to Shizuku. Root users can enable this directly after manually disabling signature restrictions</string>
 </resources>
