@@ -128,6 +128,7 @@ fun InstallChoiceContent(
                     analysisResults = analysisResults,
                     viewModel = viewModel,
                     isDarkMode = isDarkMode,
+                    apkChooseAll = installer.config.apkChooseAll,
                     onSelectModule = { viewModel.dispatch(InstallerViewAction.InstallPrepare) }
                 ) { selectionMode = MmzSelectionMode.APK_CHOICE }
             }
@@ -524,6 +525,7 @@ private fun MixedModuleZip_InitialChoice(
     isDarkMode: Boolean,
     analysisResults: List<PackageAnalysisResult>,
     viewModel: InstallerViewModel,
+    apkChooseAll: Boolean,
     onSelectModule: () -> Unit,
     onSelectApk: () -> Unit
 ) {
@@ -556,6 +558,18 @@ private fun MixedModuleZip_InitialChoice(
                         title = stringResource(R.string.installer_choice_install_as_module),
                         description = stringResource(R.string.installer_module_id, moduleEntityInfo.id),
                         onClick = {
+                            analysisResults.flatMap { it.appEntities }
+                                .filter { it.app !is AppEntity.ModuleEntity && it.selected }
+                                .forEach { entity ->
+                                    viewModel.dispatch(
+                                        InstallerViewAction.ToggleSelection(
+                                            packageName = entity.app.packageName,
+                                            entity = entity,
+                                            isMultiSelect = true
+                                        )
+                                    )
+                                }
+
                             viewModel.dispatch(
                                 InstallerViewAction.ToggleSelection(
                                     packageName = moduleSelectableEntity.app.packageName,
@@ -572,7 +586,23 @@ private fun MixedModuleZip_InitialChoice(
                     MiuixNavigationItemWidget(
                         title = stringResource(R.string.installer_choice_install_as_app),
                         description = stringResource(R.string.installer_choice_install_as_app_desc),
-                        onClick = { onSelectApk() }
+                        onClick = {
+                            if (apkChooseAll) {
+                                analysisResults.flatMap { it.appEntities }
+                                    // Only toggle those that are NOT already selected
+                                    .filter { it.app !is AppEntity.ModuleEntity && !it.selected }
+                                    .forEach { entity ->
+                                        viewModel.dispatch(
+                                            InstallerViewAction.ToggleSelection(
+                                                packageName = entity.app.packageName,
+                                                entity = entity,
+                                                isMultiSelect = true
+                                            )
+                                        )
+                                    }
+                            }
+                            onSelectApk()
+                        }
                     )
                 }
             }
