@@ -41,9 +41,6 @@ jobs:
           echo "${{ secrets.KEY }}" | base64 -d > TanakaLun.keystore
           chmod 600 keystore.properties TanakaLun.keystore
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
-        
       - name: Calculate Version (Sync with Upstream)
         id: version
         run: |
@@ -70,6 +67,15 @@ jobs:
           git clone https://github.com/TanakaLun/InxR.git module_temp
           cd module_temp
           rm -rf .git
+          
+          cd ..
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          cd module_temp
+          
+          if [ -f "module.prop" ]; then
+            sed -i "s/^version=.*/version=${{ env.NEW_VERSION }}/" module.prop
+            sed -i "s/^versionCode=.*/versionCode=$COMMIT_COUNT/" module.prop
+          fi
 
           TARGET_DIR="system/system_ext/priv-app/OppoPackageInstaller"
           mkdir -p "$TARGET_DIR"
