@@ -41,41 +41,58 @@ jobs:
           echo "${{ secrets.KEY }}" | base64 -d > TanakaLun.keystore
           chmod 600 keystore.properties TanakaLun.keystore
 
-      - name: Calculate Version
+      - name: Calculate Version and Time
+        id: meta
         run: |
           UPSTREAM_SHA=$(git ls-remote "$UPSTREAM_REPO" HEAD | awk '{print $1}' | cut -c1-7)
-          echo "VERSION_NAME=$(date +'%y.%m').${UPSTREAM_SHA}" >> $GITHUB_ENV
-          echo "VERSION_CODE=$(git rev-list --count HEAD)" >> $GITHUB_ENV
+          DATE_VER=$(date +'%y.%m')
+          FINAL_VERSION="${DATE_VER}.${UPSTREAM_SHA}"
+          BUILD_TIME=$(date -u -d "8 hours" '+%Y-%m-%d %H:%M:%S')
+          
+          echo "NEW_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
 
       - name: Build APK
         run: |
           ./gradlew assembleOnlinePreviewRelease -PAPP_ID="com.android.packageinstaller"
 
       - name: Prepare Magisk Module
+        id: package
         run: |
           git clone https://github.com/TanakaLun/InxR.git module_temp
           cd module_temp
           rm -rf .git
+          
+          COMMIT_COUNT=$(git rev-list --count HEAD)
           if [ -f "module.prop" ]; then
-            sed -i "s/^version=.*/version=${{ env.VERSION_NAME }}/" module.prop
-            sed -i "s/^versionCode=.*/versionCode=${{ env.VERSION_CODE }}/" module.prop
+            sed -i "s/^version=.*/version=${{ env.NEW_VERSION }}/" module.prop
+            sed -i "s/^versionCode=.*/versionCode=$COMMIT_COUNT/" module.prop
           fi
+
           TARGET_DIR="system/system_ext/priv-app/OppoPackageInstaller"
           mkdir -p "$TARGET_DIR"
+          
           ORIGINAL_APK=$(find ../app/build/outputs/apk/onlinePreview/release -name "*.apk" | head -n 1)
           cp "$ORIGINAL_APK" "$TARGET_DIR/OppoPackageInstaller.apk"
-          zip -r "$GITHUB_WORKSPACE/InxR-${{ env.VERSION_NAME }}.zip" ./*
-          cp "$ORIGINAL_APK" "$GITHUB_WORKSPACE/InxR-${{ env.VERSION_NAME }}.apk"
+          
+          ZIP_NAME="InxR-${{ env.NEW_VERSION }}.zip"
+          zip -r "../$ZIP_NAME" ./*
+          
+          cd ..
+          echo "module_zip=$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "standalone_apk=$ORIGINAL_APK" >> $GITHUB_OUTPUT
 
-      - name: Upload to Telegram
+      - name: Send to Telegram
         env:
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          MESSAGE_THREAD_ID: ${{ secrets.MSGID }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          VERSION_NAME: ${{ env.VERSION_NAME }}
-          VERSION_CODE: ${{ env.VERSION_CODE }}
-          UPSTREAM_REPO: ${{ env.UPSTREAM_REPO }}
+          NEW_VERSION: ${{ env.NEW_VERSION }}
+          BUILD_TIME: ${{ env.BUILD_TIME }}
         run: |
-          pip3 install python-telegram-bot
-          python3 .github/module_bot.py *.zip *.apk
+          export API_ID=$(grep 'API_ID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          export API_HASH=$(grep 'API_HASH' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          export BOTTOKEN=$(grep 'BOTTOKEN' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          export CHAT_ID=$(grep 'CHAT_ID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          export MSGID=$(grep 'MSGID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+
+          pip3 install telethon
+          python3 .github/module_bot.py \
+            "${{ steps.package.outputs.module_zip }}"
