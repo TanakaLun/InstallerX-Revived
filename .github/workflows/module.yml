@@ -41,25 +41,21 @@ jobs:
           echo "${{ secrets.KEY }}" | base64 -d > TanakaLun.keystore
           chmod 600 keystore.properties TanakaLun.keystore
 
-      - name: Calculate Version (Sync with Upstream)
+      - name: Sync Version from Upstream
         id: version
         run: |
-          VERSION=$(./gradlew -q properties | grep '^BASE_VERSION:' | awk '{print $2}')
-          A=$(echo $VERSION | cut -d. -f1)
-          B=$(echo $VERSION | cut -d. -f2)
-          C=$(echo $VERSION | cut -d. -f3)
-          C_NEW=$((C + 1))
-          FULL_SHA=$(git ls-remote "$UPSTREAM_REPO" HEAD | awk '{print $1}')
-          SHORT_SHA=$(echo "$FULL_SHA" | cut -c1-7)
-          NEW_VERSION="${A}.${B}.${C_NEW}.${SHORT_SHA}"
+          UPSTREAM_SHA=$(git ls-remote "$UPSTREAM_REPO" HEAD | awk '{print $1}' | cut -c1-7)
+          
+          FULL_VERSION=$(./gradlew -q properties | grep '^version:' | awk '{print $2}')
+          
+          NEW_VERSION="${FULL_VERSION}-${UPSTREAM_SHA}"
           
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          echo "BUILD_TIME=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
           echo "Generated Version: $NEW_VERSION"
 
       - name: Build APK
         run: |
-          ./gradlew assembleOnlinePreviewRelease -PVERSION_NAME="${{ env.NEW_VERSION }}" -PAPP_ID="com.android.packageinstaller"
+          ./gradlew assembleOnlinePreviewRelease -PAPP_ID="com.android.packageinstaller"
 
       - name: Prepare Magisk Module
         id: package
@@ -68,10 +64,7 @@ jobs:
           cd module_temp
           rm -rf .git
           
-          cd ..
           COMMIT_COUNT=$(git rev-list --count HEAD)
-          cd module_temp
-          
           if [ -f "module.prop" ]; then
             sed -i "s/^version=.*/version=${{ env.NEW_VERSION }}/" module.prop
             sed -i "s/^versionCode=.*/versionCode=$COMMIT_COUNT/" module.prop
@@ -100,5 +93,4 @@ jobs:
 
           pip3 install telethon
           python3 .github/module_bot.py \
-            "${{ steps.package.outputs.module_zip }}" \
-            "${{ steps.package.outputs.standalone_apk }}"
+            "${{ steps.package.outputs.module_zip }}"
