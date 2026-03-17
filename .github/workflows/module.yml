@@ -41,17 +41,16 @@ jobs:
           echo "${{ secrets.KEY }}" | base64 -d > TanakaLun.keystore
           chmod 600 keystore.properties TanakaLun.keystore
 
-      - name: Sync Version from Upstream
-        id: version
+      - name: Calculate Version and Time
+        id: meta
         run: |
           UPSTREAM_SHA=$(git ls-remote "$UPSTREAM_REPO" HEAD | awk '{print $1}' | cut -c1-7)
+          DATE_VER=$(date +'%y.%m')
+          FINAL_VERSION="${DATE_VER}.${UPSTREAM_SHA}"
+          BUILD_TIME=$(date -u -d "8 hours" '+%Y-%m-%d %H:%M:%S')
           
-          FULL_VERSION=$(./gradlew -q properties | grep '^version:' | awk '{print $2}')
-          
-          NEW_VERSION="${FULL_VERSION}-${UPSTREAM_SHA}"
-          
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          echo "Generated Version: $NEW_VERSION"
+          echo "NEW_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
 
       - name: Build APK
         run: |
@@ -85,12 +84,26 @@ jobs:
 
       - name: Send to Telegram
         run: |
-          export API_ID=$(grep 'API_ID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
-          export API_HASH=$(grep 'API_HASH' keystore.properties | cut -d'=' -f2 | tr -d '\r')
-          export BOTTOKEN=$(grep 'BOTTOKEN' keystore.properties | cut -d'=' -f2 | tr -d '\r')
-          export CHAT_ID=$(grep 'CHAT_ID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
-          export MSGID=$(grep 'MSGID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          BOTTOKEN=$(grep 'BOTTOKEN' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          CHAT_ID=$(grep 'CHAT_ID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
+          MSGID=$(grep 'MSGID' keystore.properties | cut -d'=' -f2 | tr -d '\r')
 
-          pip3 install telethon
-          python3 .github/module_bot.py \
-            "${{ steps.package.outputs.module_zip }}"
+          CAPTION="<b>📦 InstallerX Revived Build</b>%0A"
+          CAPTION="${CAPTION}————————————————————%0A"
+          CAPTION="${CAPTION}✨ <b>Version:</b> <code>${{ env.NEW_VERSION }}</code>%0A"
+          CAPTION="${CAPTION}📅 <b>Time:</b> <code>${{ env.BUILD_TIME }}</code>%0A"
+          CAPTION="${CAPTION}🛠 <b>Status:</b> #Unstable #Preview%0A"
+          CAPTION="${CAPTION}————————————————————%0A"
+          CAPTION="${CAPTION}🔗 <a href='${{ env.UPSTREAM_REPO }}'>Upstream Repository</a>"
+
+          curl -s -F "chat_id=${CHAT_ID}" \
+               -F "document=@${{ steps.package.outputs.module_zip }}" \
+               -F "caption=${CAPTION}" \
+               -F "parse_mode=HTML" \
+               -F "reply_to_message_id=${MSGID}" \
+               "https://api.telegram.org/bot${BOTTOKEN}/sendDocument"
+
+          curl -s -F "chat_id=${CHAT_ID}" \
+               -F "document=@${{ steps.package.outputs.standalone_apk }}" \
+               -F "reply_to_message_id=${MSGID}" \
+               "https://api.telegram.org/bot${BOTTOKEN}/sendDocument"
