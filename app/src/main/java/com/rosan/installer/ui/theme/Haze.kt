@@ -7,6 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.ExperimentalHazeApi
+import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -33,18 +35,24 @@ fun HazeState?.getMiuixAppBarColor() = this?.let { Color.Transparent } ?: MiuixT
 
 /**
  * Apply a standard glassmorphism blur effect using Haze.
- * @param state The HazeState to coordinate with the source.
- * @param style The custom HazeStyle.
+ * @param hazeState The HazeState to coordinate with the source.
+ * @param hazeStyle The custom HazeStyle.
+ * @param enabled Whether the effect is enabled.
  */
+@OptIn(ExperimentalHazeApi::class)
 fun Modifier.installerHazeEffect(
-    state: HazeState?,
-    style: HazeStyle,
+    hazeState: HazeState?,
+    hazeStyle: HazeStyle,
     enabled: Boolean = true
-): Modifier = state?.let {
-    this.hazeEffect(it) {
-        this.style = style
-        this.blurEnabled = enabled
-        this.blurRadius = 30.dp
-        this.noiseFactor = 0f
+): Modifier = hazeState?.let {
+    this.hazeEffect(
+        state = it,
+        style = hazeStyle
+    ) {
+        blurEnabled = enabled
+        blurRadius = 20.dp
+        inputScale = HazeInputScale.Fixed(0.33f)
+        noiseFactor = 0f
+        forceInvalidateOnPreDraw = false
     }
 } ?: this

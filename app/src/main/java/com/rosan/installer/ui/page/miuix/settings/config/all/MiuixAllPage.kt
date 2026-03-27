@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.settings.config.all
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -7,29 +9,40 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rosan.installer.R
-import com.rosan.installer.data.settings.model.room.entity.ConfigEntity
+import com.rosan.installer.domain.settings.model.ConfigModel
 import com.rosan.installer.ui.page.main.settings.config.all.AllViewAction
+import com.rosan.installer.ui.page.main.settings.config.all.AllViewEvent
 import com.rosan.installer.ui.page.main.settings.config.all.AllViewModel
 import com.rosan.installer.ui.page.main.settings.config.all.AllViewState
 import com.rosan.installer.ui.page.miuix.widgets.MiuixBadge
@@ -40,6 +53,9 @@ import com.rosan.installer.ui.theme.rememberMiuixHazeStyle
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import kotlinx.coroutines.flow.collectLatest
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -47,6 +63,8 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.SnackbarResult
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -60,19 +78,45 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 @Composable
 fun MiuixAllPage(
     navController: NavController,
-    viewModel: AllViewModel,
+    viewModel: AllViewModel = koinViewModel { parametersOf(navController) },
     hazeState: HazeState?,
     title: String,
-    outerPadding: PaddingValues
+    outerPadding: PaddingValues,
+    snackbarHostState: SnackbarHostState
 ) {
     LaunchedEffect(Unit) {
         viewModel.navController = navController
     }
 
-    val listState = rememberLazyStaggeredGridState()
-
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyGridState()
     val scrollBehavior = MiuixScrollBehavior()
     val hazeStyle = rememberMiuixHazeStyle()
+
+    val deleteSuccessString = stringResource(id = R.string.delete_success)
+    val restoreString = stringResource(id = R.string.restore)
+
+    LaunchedEffect(Unit) {
+        viewModel.eventFlow.collectLatest { event ->
+            when (event) {
+                is AllViewEvent.DeletedConfig -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = deleteSuccessString,
+                        actionLabel = restoreString,
+                        withDismissAction = true
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.dispatch(
+                            AllViewAction.RestoreDataConfig(configModel = event.configModel)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -85,12 +129,15 @@ fun MiuixAllPage(
             )
         }
     ) { innerPadding ->
-        when (viewModel.state.data.progress) {
-            is AllViewState.Data.Progress.Loading if viewModel.state.data.configs.isEmpty() -> {
+        when (uiState.data.progress) {
+            is AllViewState.Data.Progress.Loading if uiState.data.configs.isEmpty() -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
+                        .padding(
+                            top = innerPadding.calculateTopPadding(),
+                            bottom = outerPadding.calculateBottomPadding()
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -106,40 +153,39 @@ fun MiuixAllPage(
                 }
             }
 
-            is AllViewState.Data.Progress.Loaded if viewModel.state.data.configs.isEmpty() -> {
-                // TODO Add error handling
+            is AllViewState.Data.Progress.Loaded if uiState.data.configs.isEmpty() -> {
                 // Since we don't allow removing default profile,
                 // There is no need to handle an empty state.
             }
 
             else -> {
-                val configs = viewModel.state.data.configs
+                val configs = uiState.data.configs
                 val minId = configs.minByOrNull { it.id }?.id
 
-                LazyVerticalStaggeredGrid(
+                LazyVerticalGrid(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(hazeState?.let { Modifier.hazeSource(it) } ?: Modifier)
                         .overScrollVertical()
                         .nestedScroll(scrollBehavior.nestedScrollConnection),
-                    columns = StaggeredGridCells.Adaptive(350.dp),
+                    columns = GridCells.Adaptive(350.dp),
                     contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
+                        start = horizontalSafeInsets.calculateStartPadding(layoutDirection) + 16.dp,
+                        end = horizontalSafeInsets.calculateEndPadding(layoutDirection) + 16.dp,
                         top = innerPadding.calculateTopPadding() + 16.dp,
                         bottom = outerPadding.calculateBottomPadding() + 16.dp
                     ),
-                    verticalItemSpacing = 16.dp,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     overscrollEffect = null,
                     state = listState,
                 ) {
 
-                    if (!viewModel.state.userReadScopeTips)
+                    if (!uiState.userReadScopeTips)
                         item {
                             MiuixScopeTipCard(viewModel = viewModel)
                         }
-                    else item { Spacer(modifier = Modifier.size(6.dp)) }
+                    /*else item { Spacer(modifier = Modifier.size(6.dp)) }*/
 
                     items(configs) {
                         DataItemWidget(viewModel, it, it.id == minId)
@@ -153,7 +199,7 @@ fun MiuixAllPage(
 @Composable
 private fun DataItemWidget(
     viewModel: AllViewModel,
-    entity: ConfigEntity,
+    entity: ConfigModel,
     isDefault: Boolean
 ) {
     Card(

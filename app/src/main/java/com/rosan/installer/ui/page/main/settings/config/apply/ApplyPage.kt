@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 iamr0s, InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.config.apply
 
 import androidx.compose.animation.AnimatedContent
@@ -14,10 +16,18 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -70,15 +80,17 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rosan.installer.R
-import com.rosan.installer.ui.common.ViewContent
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.widget.chip.Chip
 import com.rosan.installer.ui.page.main.widget.setting.AppBackButton
@@ -99,8 +111,7 @@ fun ApplyPage(
         parametersOf(id)
     }
 ) {
-    LaunchedEffect(Unit) { viewModel.dispatch(ApplyViewAction.Init) }
-
+    val uiState by viewModel.state.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -110,6 +121,9 @@ fun ApplyPage(
             lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0
         }
     }
+
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
 
     Scaffold(
         modifier = Modifier
@@ -127,7 +141,7 @@ fun ApplyPage(
                             val focusRequester = remember { FocusRequester() }
                             OutlinedTextField(
                                 modifier = Modifier.focusRequester(focusRequester),
-                                value = viewModel.state.search,
+                                value = uiState.search,
                                 onValueChange = { viewModel.dispatch(ApplyViewAction.Search(it)) },
                                 singleLine = true,
                                 leadingIcon = {
@@ -187,7 +201,10 @@ fun ApplyPage(
                 visible = showFloating,
                 enter = scaleIn(),
                 exit = scaleOut(),
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(
+                    end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
+                    bottom = 16.dp
+                )
             ) {
                 FloatingActionButton({
                     coroutineScope.launch {
@@ -197,12 +214,15 @@ fun ApplyPage(
                     Icon(imageVector = AppIcons.ArrowUp, contentDescription = null)
                 }
             }
-        }) {
-        Box(modifier = Modifier.padding(it)) {
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize()) {
             when {
-                viewModel.state.apps.progress is ViewContent.Progress.Loading && viewModel.state.apps.data.isEmpty() -> {
+                uiState.apps.progress is ViewContent.Progress.Loading && uiState.apps.data.isEmpty() -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -219,9 +239,8 @@ fun ApplyPage(
                 }
 
                 else -> {
-                    val refreshing = viewModel.state.apps.progress is ViewContent.Progress.Loading
+                    val refreshing = uiState.apps.progress is ViewContent.Progress.Loading
                     val pullToRefreshState = rememberPullToRefreshState()
-                    // 使用 PullToRefreshBox 作为根容器
                     PullToRefreshBox(
                         state = pullToRefreshState,
                         isRefreshing = refreshing,
@@ -239,9 +258,15 @@ fun ApplyPage(
                     ) {
                         ItemsWidget(
                             modifier = Modifier.fillMaxSize(),
+                            uiState = uiState,
                             viewModel = viewModel,
-                            lazyListState = lazyListState
+                            lazyListState = lazyListState,
+                            topPadding = paddingValues.calculateTopPadding(),
+                            bottomPadding = paddingValues.calculateBottomPadding(),
+                            startPadding = horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                            endPadding = horizontalSafeInsets.calculateEndPadding(layoutDirection)
                         )
+                        Spacer(modifier = Modifier.navigationBarsPadding())
                     }
                 }
             }
@@ -249,21 +274,26 @@ fun ApplyPage(
     }
 
     if (showBottomSheet) ModalBottomSheet(onDismissRequest = { showBottomSheet = false }) {
-        BottomSheetContent(viewModel)
+        BottomSheetContent(uiState = uiState, viewModel = viewModel)
     }
 }
 
 @Composable
 private fun ItemsWidget(
     modifier: Modifier,
+    uiState: ApplyViewState,
     viewModel: ApplyViewModel,
     lazyListState: LazyListState,
+    topPadding: Dp = 0.dp,
+    bottomPadding: Dp = 0.dp,
+    startPadding: Dp = 0.dp,
+    endPadding: Dp = 0.dp
 ) {
     // Optimize lookup performance by converting the list to a Set.
     // Use derivedStateOf to ensure it only recalculates when the data actually changes.
-    val appliedPackageSet by remember(viewModel.state.appEntities.data) {
+    val appliedPackageSet by remember(uiState.appEntities.data) {
         derivedStateOf {
-            viewModel.state.appEntities.data.map { it.packageName }.toHashSet()
+            uiState.appEntities.data.map { it.packageName }.toHashSet()
         }
     }
 
@@ -271,14 +301,27 @@ private fun ItemsWidget(
         modifier = modifier,
         state = lazyListState,
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(8.dp)
+        contentPadding = PaddingValues(
+            start = startPadding + 8.dp,
+            top = topPadding + 8.dp,
+            end = endPadding + 8.dp,
+            bottom = bottomPadding + 88.dp
+        )
     ) {
         items(
-            items = viewModel.state.checkedApps,
+            items = uiState.checkedApps,
             key = { it.packageName },
             contentType = { "app_item" } // Help Compose recycle items more efficiently
         ) { app ->
             val isApplied = appliedPackageSet.contains(app.packageName)
+
+            // Dispatch action to load the icon when the item becomes visible
+            LaunchedEffect(app.packageName) {
+                viewModel.dispatch(ApplyViewAction.LoadIcon(app.packageName))
+            }
+
+            // Retrieve the dynamically loaded icon from the state
+            val iconBitmap = uiState.displayIcons[app.packageName]
 
             ApplyItemWidget(
                 modifier = Modifier.animateItem(
@@ -289,9 +332,10 @@ private fun ItemsWidget(
                     )
                 ),
                 app = app,
+                icon = iconBitmap, // Pass the managed state
                 isApplied = isApplied,
                 isM3e = false,
-                showPackageName = viewModel.state.showPackageName,
+                showPackageName = uiState.showPackageName,
                 onToggle = { isChecked ->
                     viewModel.dispatch(ApplyViewAction.ApplyPackageName(app.packageName, isChecked))
                 },
@@ -304,7 +348,7 @@ private fun ItemsWidget(
 }
 
 @Composable
-private fun BottomSheetContent(viewModel: ApplyViewModel) {
+private fun BottomSheetContent(uiState: ApplyViewState, viewModel: ApplyViewModel) {
     Box(modifier = Modifier.fillMaxWidth()) {
         CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.titleContentColor) {
             ProvideTextStyle(MaterialTheme.typography.headlineSmall) {
@@ -320,14 +364,17 @@ private fun BottomSheetContent(viewModel: ApplyViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OrderWidget(viewModel)
-        ChipsWidget(viewModel)
+        OrderWidget(uiState = uiState, viewModel = viewModel)
+        ChipsWidget(uiState = uiState, viewModel = viewModel)
     }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun OrderWidget(viewModel: ApplyViewModel) {
+private fun OrderWidget(
+    uiState: ApplyViewState,
+    viewModel: ApplyViewModel
+) {
     val haptic = LocalHapticFeedback.current
 
     LabelWidget(stringResource(R.string.sort), 0.dp)
@@ -340,7 +387,7 @@ private fun OrderWidget(viewModel: ApplyViewModel) {
         OrderData(R.string.sort_by_install_time, ApplyViewState.OrderType.FirstInstallTime)
     )
 
-    val selectedIndex = map.map { it.type }.indexOf(viewModel.state.orderType)
+    val selectedIndex = map.map { it.type }.indexOf(uiState.orderType)
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
@@ -376,15 +423,18 @@ private fun OrderWidget(viewModel: ApplyViewModel) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChipsWidget(viewModel: ApplyViewModel) {
+private fun ChipsWidget(
+    uiState: ApplyViewState,
+    viewModel: ApplyViewModel
+) {
     LabelWidget(stringResource(R.string.more), 0.dp)
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val orderInReverse = viewModel.state.orderInReverse
-        val selectedFirst = viewModel.state.selectedFirst
-        val showSystemApp = viewModel.state.showSystemApp
-        val showPackageName = viewModel.state.showPackageName
+        val orderInReverse = uiState.orderInReverse
+        val selectedFirst = uiState.selectedFirst
+        val showSystemApp = uiState.showSystemApp
+        val showPackageName = uiState.showPackageName
         Chip(
             selected = orderInReverse,
             label = stringResource(R.string.sort_by_reverse_order),

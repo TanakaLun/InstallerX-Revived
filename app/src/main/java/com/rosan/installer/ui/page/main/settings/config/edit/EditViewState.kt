@@ -1,24 +1,58 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.config.edit
 
-import com.rosan.installer.data.settings.model.datastore.entity.NamedPackage
-import com.rosan.installer.data.settings.model.room.entity.ConfigEntity
+import com.rosan.installer.R
+import com.rosan.installer.domain.settings.model.Authorizer
+import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.domain.settings.model.DexoptMode
+import com.rosan.installer.domain.settings.model.InstallMode
+import com.rosan.installer.domain.settings.model.InstallReason
+import com.rosan.installer.domain.settings.model.NamedPackage
+import com.rosan.installer.domain.settings.model.PackageSource
 
 data class EditViewState(
-    val data: Data = Data.build(ConfigEntity.default),
+    val data: Data = Data.build(ConfigModel.default),
+    val originalData: Data? = null,
     val managedInstallerPackages: List<NamedPackage> = emptyList(),
     val availableUsers: Map<Int, String> = emptyMap(),
-    val isCustomInstallRequesterEnabled: Boolean = false
+    val isCustomInstallRequesterEnabled: Boolean = false,
+
+    // Global states integrated into the view state
+    val globalAuthorizer: Authorizer = Authorizer.Global,
+    val globalInstallMode: InstallMode = InstallMode.Global
 ) {
+    // Computed property for unsaved changes
+    val hasUnsavedChanges: Boolean
+        get() = originalData != null && data != originalData
+
+    // Return string resource IDs instead of resolved strings to keep State pure
+    val activeErrorResIds: List<Int>
+        get() {
+            val errors = mutableListOf<Int>()
+            with(data) {
+                if (errorName) errors.add(R.string.config_error_name)
+                if (errorCustomizeAuthorizer) errors.add(R.string.config_error_customize_authorizer)
+                if (errorInstaller) errors.add(R.string.config_error_installer)
+                if (errorInstallRequester) errors.add(R.string.config_error_package_not_found)
+            }
+            return errors
+        }
+
+    val hasErrors: Boolean
+        get() = activeErrorResIds.isNotEmpty()
+
     data class Data(
         val name: String,
         val description: String,
-        val authorizer: ConfigEntity.Authorizer,
+        val authorizer: Authorizer,
         val customizeAuthorizer: String,
-        val installMode: ConfigEntity.InstallMode,
+        val installMode: InstallMode,
+        val showToast: Boolean,
         val enableCustomizePackageSource: Boolean,
-        val packageSource: ConfigEntity.PackageSource,
+        val packageSource: PackageSource,
         val enableCustomizeInstallReason: Boolean,
-        val installReason: ConfigEntity.InstallReason,
+        val installReason: InstallReason,
         val enableCustomizeInstallRequester: Boolean,
         val installRequester: String,
         val installRequesterUid: Int? = null,
@@ -28,7 +62,7 @@ data class EditViewState(
         val targetUserId: Int,
         val enableManualDexopt: Boolean,
         val forceDexopt: Boolean,
-        val dexoptMode: ConfigEntity.DexoptMode,
+        val dexoptMode: DexoptMode,
         val autoDelete: Boolean,
         val autoDeleteZip: Boolean,
         val displaySdk: Boolean,
@@ -38,26 +72,23 @@ data class EditViewState(
         val allowDowngrade: Boolean,
         val bypassLowTargetSdk: Boolean,
         val allowAllRequestedPermissions: Boolean,
+        val requestUpdateOwnership: Boolean,
         val splitChooseAll: Boolean,
         val apkChooseAll: Boolean
     ) {
         val errorName = name.isEmpty()// || name == "Default"
-
-        val authorizerCustomize = authorizer == ConfigEntity.Authorizer.Customize
-
+        val authorizerCustomize = authorizer == Authorizer.Customize
         val errorCustomizeAuthorizer = authorizerCustomize && customizeAuthorizer.isEmpty()
-
         val errorInstaller = declareInstaller && installer.isEmpty()
-
-        // Validation: Error if enabled but package name is empty OR (package name is not empty but UID not found)
         val errorInstallRequester = enableCustomizeInstallRequester && (installRequester.isEmpty() || installRequesterUid == null)
 
-        fun toConfigEntity(): ConfigEntity = ConfigEntity(
+        fun toConfigModel(): ConfigModel = ConfigModel(
             name = this.name,
             description = this.description,
             authorizer = this.authorizer,
             customizeAuthorizer = if (this.authorizerCustomize) this.customizeAuthorizer else "",
             installMode = this.installMode,
+            showToast = this.showToast,
             enableCustomizeInstallReason = this.enableCustomizeInstallReason,
             installReason = this.installReason,
             enableCustomizePackageSource = this.enableCustomizePackageSource,
@@ -78,16 +109,18 @@ data class EditViewState(
             allowDowngrade = this.allowDowngrade,
             bypassLowTargetSdk = this.bypassLowTargetSdk,
             allowAllRequestedPermissions = this.allowAllRequestedPermissions,
+            requestUpdateOwnership = this.requestUpdateOwnership,
             splitChooseAll = this.splitChooseAll,
             apkChooseAll = this.apkChooseAll
         )
 
         companion object {
-            fun build(config: ConfigEntity): Data = Data(
+            fun build(config: ConfigModel): Data = Data(
                 name = config.name,
                 description = config.description,
                 authorizer = config.authorizer,
                 customizeAuthorizer = config.customizeAuthorizer,
+                showToast = config.showToast,
                 installMode = config.installMode,
                 enableCustomizePackageSource = config.enableCustomizePackageSource,
                 enableCustomizeInstallReason = config.enableCustomizeInstallReason,
@@ -112,10 +145,10 @@ data class EditViewState(
                 allowDowngrade = config.allowDowngrade,
                 bypassLowTargetSdk = config.bypassLowTargetSdk,
                 allowAllRequestedPermissions = config.allowAllRequestedPermissions,
+                requestUpdateOwnership = config.requestUpdateOwnership,
                 splitChooseAll = config.splitChooseAll,
                 apkChooseAll = config.apkChooseAll
             )
         }
     }
 }
-

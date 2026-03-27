@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.installer.sheetcontent
 
 import androidx.compose.foundation.layout.Arrangement
@@ -25,14 +27,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rosan.installer.R
-import com.rosan.installer.ui.theme.LocalIsDark
+import com.rosan.installer.ui.theme.InstallerTheme
 import com.rosan.installer.ui.util.KeyEventBlocker
 import com.rosan.installer.ui.util.isGestureNavigation
 import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardColors
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
 
@@ -41,8 +45,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
  * It features a scrollable log area that automatically follows new output,
  * and a close button.
  *
- * @param colorScheme The color scheme for the UI.
- * @param isDarkMode Whether the UI is in dark mode.
  * @param outputLines The list of log lines to display.
  * @param isFinished Whether the installation process has completed.
  * @param onClose Lambda to be invoked when the close button is clicked.
@@ -70,7 +72,7 @@ fun InstallModuleContent(
         }
     }
 
-    val isDarkMode = LocalIsDark.current
+    val isDarkMode = InstallerTheme.isDark
     val cardColor = if (isDynamicColor) MiuixTheme.colorScheme.surfaceContainer else
         if (isDarkMode) Color.Black else Color.White
 
@@ -110,19 +112,25 @@ fun InstallModuleContent(
 
         // The button at the bottom changes based on the finished state.
         if (isFinished) {
-            Button(
+            TextButton(
+                text = stringResource(R.string.close),
                 onClick = onClose,
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(top = 24.dp, bottom = if (isGestureNavigation()) 24.dp else 0.dp),
-            ) {
-                Text(stringResource(R.string.close))
-            }
+                colors = ButtonDefaults.textButtonColors(
+                    color = if (isDynamicColor) MiuixTheme.colorScheme.secondaryContainer else MiuixTheme.colorScheme.secondaryVariant,
+                    textColor = if (isDynamicColor) MiuixTheme.colorScheme.onSecondaryContainer else MiuixTheme.colorScheme.onSecondaryVariant
+                )
+            )
         } else {
             Button(
                 enabled = false,
                 onClick = {},
+                colors = ButtonDefaults.buttonColors(
+                    color = if (isDynamicColor) MiuixTheme.colorScheme.secondaryContainer else MiuixTheme.colorScheme.secondaryVariant
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()

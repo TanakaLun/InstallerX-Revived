@@ -56,7 +56,7 @@
     <string name="theme_settings_ui_style">UI Style</string>
     <string name="theme_settings_desc">Change the theme of the app</string>
     <string name="theme_settings_miuix_ui">Miuix</string>
-    <string name="theme_settings_miuix_ui_desc">Similar to Hyperos</string>
+    <string name="theme_settings_miuix_ui_desc">Similar to HyperOS</string>
     <string name="theme_settings_miuix_custom_colors">Custom Colors</string>
     <string name="theme_settings_miuix_custom_colors_desc">Customize theme colors in Miuix theme style</string>
     <string name="theme_settings_google_ui">Google Material 3</string>
@@ -64,6 +64,8 @@
     <string name="theme_settings_ui_engine">UI Engine</string>
     <string name="theme_settings_use_expressive_ui">Use Expressive UI</string>
     <string name="theme_settings_use_expressive_ui_desc">Use the new M3 Expressive style</string>
+    <string name="theme_settings_use_apple_floating_bar">Enable floating bottom bar</string>
+    <string name="theme_settings_use_apple_floating_bar_desc">Display a floating style navigation bar at the bottom of the screen</string>
     <string name="theme_settings_use_blur">Enable Blur</string>
     <string name="theme_settings_use_blur_desc">Enable blur for the app</string>
     <string name="theme_settings_use_blur_warning">The blur effect may be unstable and cause unexpected issues on Android 11 and below. You may need to clear app data if problems occur. Do you want to continue?</string>
@@ -195,6 +197,8 @@
     <string name="config_install_mode_notification">Notification</string>
     <string name="config_install_mode_auto_notification">Auto notification</string>
     <string name="config_install_mode_ignore">Ignore</string>
+    <string name="config_install_show_toast">Show Toast</string>
+    <string name="config_install_show_toast_desc">Show toast after install</string>
     <string name="config_customize_install_reason">Customize Install Reason</string>
     <string name="config_customize_install_reason_desc">Specify the install reason. For new installations, selecting "User" usually triggers the launcher to create a desktop icon</string>
     <string name="config_install_reason">Install Reason</string>
@@ -336,6 +340,7 @@
     <string name="installer_prepare_install">Before you install</string>
     <string name="installer_prepare_install_empty">Please select at least one package</string>
     <string name="installer_prepare_install_too_many">Please select only one base.apk</string>
+    <string name="copied_format">Copied: %1$s</string>
     <string name="tag_downgrade">Downgrade</string>
     <string name="tag_signature">Signature</string>
     <string name="tag_sdk" translatable="false">SDK</string>
@@ -355,6 +360,9 @@
     <string name="installer_prepare_type_unknown_confirm">Are you sure you want to install?</string>
     <string name="installer_prepare_signature_mismatch">Signature mismatch! Continuing installation may cause data loss or security risks.</string>
     <string name="installer_prepare_signature_unknown">Unable to verify app signature, please proceed with caution.</string>
+    <string name="tag_xposed" translatable="false">Xposed</string>
+    <string name="installer_xposed_min_api">Min API: </string>
+    <string name="installer_xposed_target_api">Target API: </string>
     <string name="installer_splits_invalid_tip">Cannot add the selected split package to an uninstalled app</string>
     <string name="installer_splits_only_tip">Only split APKs are selected. They will be added to the existing application</string>
     <string name="installer_install_app">Install App</string>
@@ -365,6 +373,7 @@
     <string name="installer_install_failed">Install failed</string>
     <string name="installer_install_success">Install success</string>
     <string name="installer_install_complete">Install complete</string>
+    <string name="batch_install_result_message">Batch installation: %1$d/%2$d successful</string>
     <string name="installer_silent_install">Silent Install</string>
     <string name="installer_error_reason">Error Reason</string>
     <string name="installer_unknown_error">Unknown Error</string>
@@ -523,6 +532,7 @@
     <string name="exception_install_failed_duplicate_permission">The package is trying to redeclare permission already declared by another app!</string>
     <string name="exception_install_parse_failed_unexpected_exception">Parse Failed</string>
     <string name="exception_install_parse_failed_no_certificates">Missing certificates</string>
+    <string name="exception_install_parse_failed_bad_shared_user_id">Non-preloaded apps are forbidden from using the system shared UID</string>
     <string name="exception_install_parse_failed_skipped">The package was skipped and should be ignored</string>
     <string name="exception_install_failed_user_restricted">System restricted install through USB, please enable it</string>
     <string name="exception_uninstall_failed_hyperos_system_app">HyperOS does not allow uninstalling this app!</string>
@@ -541,6 +551,8 @@
     <string name="exception_http_not_allowed">Cleartext HTTP not allowed</string>
     <string name="exception_http_restricted_for_localhost">Cleartext HTTP restricted to localhost</string>
     <string name="exception_zip_exception">Failed to open zip as file</string>
+    <string name="error_dialog_install_menu_not_available">Extended menu is not available</string>
+    <string name="error_no_package_to_uninstall">No package available to uninstall</string>
     <string name="old_version_prefix">Current</string>
     <string name="old_version_archived">Archived</string>
     <string name="old_version_uninstalled">Uninstalled</string>
@@ -663,13 +675,13 @@
     <string name="split_name_language">Language split: %1$s</string>
     <string name="split_name_architecture">Architecture split: %1$s</string>
     <string name="split_name_density">Screen density: %1$s</string>
-    <string name="split_dpi_ldpi">Low (~120dpi)</string>
-    <string name="split_dpi_mdpi">Medium (~160dpi)</string>
-    <string name="split_dpi_hdpi">High (~240dpi)</string>
-    <string name="split_dpi_xhdpi">Very High (~320dpi)</string>
-    <string name="split_dpi_xxhdpi">Extremely High (~480dpi)</string>
-    <string name="split_dpi_xxxhdpi">Maximum (~640dpi)</string>
-    <string name="split_dpi_tvdpi">TV (~213dpi)</string>
+    <string name="split_dpi_ldpi">Low (~120 DPI)</string>
+    <string name="split_dpi_mdpi">Medium (~160 DPI)</string>
+    <string name="split_dpi_hdpi">High (~240 DPI)</string>
+    <string name="split_dpi_xhdpi">Very High (~320 DPI)</string>
+    <string name="split_dpi_xxhdpi">Extremely High (~480 DPI)</string>
+    <string name="split_dpi_xxxhdpi">Maximum (~640 DPI)</string>
+    <string name="split_dpi_tvdpi">TV (~213 DPI)</string>
     <string name="split_dpi_nodpi">No scaling</string>
     <string name="split_dpi_anydpi">Any density</string>
     <string name="split_name_base_group_title">Base Application</string>
@@ -687,7 +699,7 @@
     <string name="suggestion_uninstall_alert_dialog_confirm_action">Confirm Action</string>
     <string name="suggestion_uninstall_alert_dialog_confirm_uninstall_keep_data_message">This will uninstall the current version of the app while keeping its data, then try to install the new one. DO NOT use on system app!</string>
     <string name="suggestion_uninstall_alert_dialog_confirm_uninstall_no_data_message">This will uninstall the current version of the app and try to install the new one. DO NOT use on system app!</string>
-    <string name="suggestion_allow_downgrade">Allow Downgrade</string>
+    <string name="suggestion_allow_downgrade">Allow downgrade once</string>
     <string name="suggestion_allow_downgrade_desc">Temporarily Allow Downgrade and retry</string>
     <string name="suggestion_allow_test_app">Allow Test</string>
     <string name="suggestion_allow_test_app_desc">Temporarily Allow Test and retry</string>
@@ -724,4 +736,6 @@
     <string name="lab_set_install_requester_desc">Fill OriginatingUid field with caller package to match system behavior</string>
     <string name="lab_mi_island">Mi Super Island</string>
     <string name="lab_mi_island_desc">Global notification style. System signature verification can only be bypassed when the custom app-authenticator is set to Shizuku. Root users can enable this directly after manually disabling signature restrictions</string>
+    <string name="lab_tap_icon_to_share">Tap icon to share apk</string>
+    <string name="lab_tap_icon_to_share_desc">Tap icon on the prepare page to share apk</string>
 </resources>

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.installer.dialog.inner
 
 import androidx.compose.foundation.layout.Arrangement
@@ -27,8 +29,8 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,19 +46,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.data.app.model.entity.AppEntity
-import com.rosan.installer.data.app.model.enums.DataType
-import com.rosan.installer.data.app.util.rememberInstallOptions
-import com.rosan.installer.data.app.util.sortedBest
-import com.rosan.installer.data.installer.model.entity.ExtendedMenuEntity
-import com.rosan.installer.data.installer.model.entity.ExtendedMenuItemEntity
-import com.rosan.installer.data.installer.repo.InstallerRepo
-import com.rosan.installer.data.settings.model.datastore.entity.NamedPackage
-import com.rosan.installer.data.settings.model.room.entity.ConfigEntity
+import com.rosan.installer.domain.engine.model.AppEntity
+import com.rosan.installer.domain.engine.model.DataType
+import com.rosan.installer.domain.engine.model.sortedBest
+import com.rosan.installer.domain.session.model.ExtendedMenuEntity
+import com.rosan.installer.domain.session.model.ExtendedMenuItemEntity
+import com.rosan.installer.domain.session.repository.InstallerSessionRepository
+import com.rosan.installer.domain.settings.model.Authorizer
+import com.rosan.installer.domain.settings.model.NamedPackage
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
+import com.rosan.installer.ui.page.main.installer.components.rememberInstallOptions
 import com.rosan.installer.ui.page.main.installer.dialog.DialogInnerParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParamsType
@@ -65,22 +68,28 @@ import com.rosan.installer.util.pm.getBestPermissionLabel
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun installExtendedMenuDialog(
-    installer: InstallerRepo, viewModel: InstallerViewModel
+    session: InstallerSessionRepository,
+    viewModel: InstallerViewModel
 ): DialogParams {
-    val currentPackageName by viewModel.currentPackageName.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val currentPackageName = uiState.currentPackageName
+    val installFlags = uiState.installFlags
+    val managedPackages = uiState.managedInstallerPackages
+    val selectedInstallerPackageName = uiState.selectedInstaller
+    val availableUsers = uiState.availableUsers
+    val selectedUserId = uiState.selectedUserId
+
     val containerType =
-        installer.analysisResults.find { it.packageName == currentPackageName }?.appEntities?.first()?.app?.sourceType
-    val installOptions = rememberInstallOptions(installer.config.authorizer)
-    val installFlags by viewModel.installFlags.collectAsState()
-    val managedPackages by viewModel.managedInstallerPackages.collectAsState()
-    val selectedInstallerPackageName by viewModel.selectedInstaller.collectAsState()
+        session.analysisResults.find { it.packageName == currentPackageName }?.appEntities?.first()?.app?.sourceType
+    val installOptions = rememberInstallOptions(session.config.authorizer)
+
     val selectedInstaller = remember(selectedInstallerPackageName, managedPackages) {
         managedPackages.find { it.packageName == selectedInstallerPackageName }
     }
-    val availableUsers by viewModel.availableUsers.collectAsState()
-    val selectedUserId by viewModel.selectedUserId.collectAsState()
-    val customizeUserEnabled = installer.config.enableCustomizeUser
+    val customizeUserEnabled = session.config.enableCustomizeUser
     val defaultInstallerHintText = stringResource(id = R.string.config_follow_settings)
+
     val menuEntities = remember(installOptions, selectedInstaller, customizeUserEnabled, selectedUserId, availableUsers) {
         buildList {
             // Permission List
@@ -99,8 +108,8 @@ fun installExtendedMenuDialog(
                 )
 
             // Installer selection
-            if (installer.config.authorizer == ConfigEntity.Authorizer.Root ||
-                installer.config.authorizer == ConfigEntity.Authorizer.Shizuku
+            if (session.config.authorizer == Authorizer.Root ||
+                session.config.authorizer == Authorizer.Shizuku
             ) {
                 add(
                     ExtendedMenuEntity(
@@ -116,8 +125,8 @@ fun installExtendedMenuDialog(
             }
 
             // User selection
-            if ((installer.config.authorizer == ConfigEntity.Authorizer.Root ||
-                        installer.config.authorizer == ConfigEntity.Authorizer.Shizuku
+            if ((session.config.authorizer == Authorizer.Root ||
+                        session.config.authorizer == Authorizer.Shizuku
                         ) && customizeUserEnabled
             ) {
                 add(
@@ -133,9 +142,9 @@ fun installExtendedMenuDialog(
                 )
             }
 
-            // 动态安装选项
-            if (installer.config.authorizer == ConfigEntity.Authorizer.Root ||
-                installer.config.authorizer == ConfigEntity.Authorizer.Shizuku
+            // Dynamic installation options
+            if (session.config.authorizer == Authorizer.Root ||
+                session.config.authorizer == Authorizer.Shizuku
             ) {
                 installOptions.forEach { option ->
                     add(
@@ -166,7 +175,14 @@ fun installExtendedMenuDialog(
             )
         },
         content = DialogInnerParams(DialogParamsType.InstallExtendedMenu.id) {
-            MenuItemWidget(menuEntities, viewModel, installFlags, managedPackages, availableUsers)
+            MenuItemWidget(
+                menuEntities,
+                viewModel,
+                installFlags,
+                managedPackages,
+                availableUsers,
+                uiState.defaultInstallerFromSettings // Passed directly from state
+            )
         },
         buttons = dialogButtons(
             DialogParamsType.InstallExtendedMenu.id
@@ -184,12 +200,12 @@ fun installExtendedMenuDialog(
 fun MenuItemWidget(
     entities: SnapshotStateList<ExtendedMenuEntity>,
     viewmodel: InstallerViewModel,
-    installFlags: Int, // flags from viewmodel
+    installFlags: Int,
     managedPackages: List<NamedPackage>,
-    availableUsers: Map<Int, String>
+    availableUsers: Map<Int, String>,
+    defaultInstallerFromSettings: String? // Added parameter to receive value
 ) {
     val haptic = LocalHapticFeedback.current
-    val defaultInstallerFromSettings by viewmodel.defaultInstallerFromSettings.collectAsState()
 
     // Define shapes for different positions
     val cornerRadius = 16.dp
@@ -210,7 +226,8 @@ fun MenuItemWidget(
     val singleShape = RoundedCornerShape(cornerRadius)
 
     LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(4.dp), // 卡片之间的间距
+        // Spacing between cards
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .heightIn(max = 325.dp)
@@ -285,7 +302,6 @@ fun MenuItemWidget(
                             onDismissRequest = { expanded = false }
                         ) {
                             // "System Default" option
-                            // Not needed for the moment
                             DropdownMenuItem(
                                 text = { Text(text = stringResource(id = R.string.config_follow_settings)) },
                                 onClick = {
@@ -379,8 +395,20 @@ fun MenuItemWidget(
                         else -> null
                     }
 
-                    // 判断是否选中，仅对安装选项有效
+                    // Check if selected, valid only for install options
                     val isSelected = option?.let { (installFlags and it.value) != 0 } ?: false
+
+                    // Determine background container color
+                    val containerColor = if (option != null && isSelected)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceContainer
+
+                    // Automatically derive optimal content color based on container color
+                    val contentColor = MaterialTheme.colorScheme.contentColorFor(containerColor)
+
+                    // Derive a variant color for secondary text with alpha modification
+                    val variantContentColor = contentColor.copy(alpha = 0.7f)
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -406,14 +434,10 @@ fun MenuItemWidget(
                                 else -> {}
                             }
                         },
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 0.dp, // if (option != null && isSelected) 1.dp else 2.dp
-                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (option != null && isSelected)
-                                MaterialTheme.colorScheme.primaryContainer
-                            else
-                                MaterialTheme.colorScheme.surfaceContainer
+                            containerColor = containerColor,
+                            contentColor = contentColor
                         )
                     ) {
                         Row(
@@ -428,22 +452,8 @@ fun MenuItemWidget(
                                 contentAlignment = Alignment.Center
                             ) {
                                 when (item.action) {
-                                    is InstallExtendedMenuAction.PermissionList ->
-                                        Icon(
-                                            modifier = Modifier.size(24.dp),
-                                            imageVector = item.menuItem.icon
-                                                ?: Icons.TwoTone.PermDeviceInformation,
-                                            contentDescription = stringResource(item.menuItem.nameResourceId),
-                                        )
-
-                                    is InstallExtendedMenuAction.CustomizeInstaller ->
-                                        Icon(
-                                            modifier = Modifier.size(24.dp),
-                                            imageVector = item.menuItem.icon
-                                                ?: Icons.TwoTone.PermDeviceInformation,
-                                            contentDescription = stringResource(item.menuItem.nameResourceId),
-                                        )
-
+                                    is InstallExtendedMenuAction.PermissionList,
+                                    is InstallExtendedMenuAction.CustomizeInstaller,
                                     is InstallExtendedMenuAction.CustomizeUser ->
                                         Icon(
                                             modifier = Modifier.size(24.dp),
@@ -455,7 +465,7 @@ fun MenuItemWidget(
                                     is InstallExtendedMenuAction.InstallOption ->
                                         Checkbox(
                                             checked = isSelected,
-                                            onCheckedChange = null, // 交互处理在 Card 的 onClick 中
+                                            onCheckedChange = null, // Interaction is handled in the Card's onClick
                                         )
 
                                     is InstallExtendedMenuAction.TextField -> {}
@@ -466,13 +476,15 @@ fun MenuItemWidget(
                                 Text(
                                     text = stringResource(item.menuItem.nameResourceId),
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    // Title inherits the default contentColor perfectly
+                                    color = contentColor
                                 )
                                 item.menuItem.descriptionResourceId?.let { descriptionId ->
                                     Text(
                                         text = stringResource(descriptionId),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        // Apply the derived variant color for the description
+                                        color = variantContentColor
                                     )
                                 }
                             }
@@ -487,10 +499,13 @@ fun MenuItemWidget(
 
 @Composable
 fun installExtendedMenuSubMenuDialog(
-    installer: InstallerRepo, viewModel: InstallerViewModel
+    session: InstallerSessionRepository, viewModel: InstallerViewModel
 ): DialogParams {
-    val currentPackageName by viewModel.currentPackageName.collectAsState()
-    val currentPackage = installer.analysisResults.find { it.packageName == currentPackageName }
+    // Observe the single source of truth
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentPackageName = uiState.currentPackageName
+
+    val currentPackage = session.analysisResults.find { it.packageName == currentPackageName }
 
     val entity = currentPackage?.appEntities
         ?.filter { it.selected }
@@ -517,10 +532,10 @@ fun installExtendedMenuSubMenuDialog(
                     .padding(horizontal = 16.dp, vertical = 0.dp)
                     .heightIn(max = 400.dp),
             ) {
-                itemsIndexed(permissionList) { index, permission ->
+                itemsIndexed(permissionList) { _, permission ->
                     PermissionCard(
                         permission = permission,
-                        // 从 ViewModel 的 state 中读取是否选中
+                        // Note: If you need to read selection state from viewmodel later, use uiState here
                         isHighlight = false
                     )
                 }
@@ -547,16 +562,24 @@ fun PermissionCard(
         context.getBestPermissionLabel(permission)
     }
 
+    // Determine the background color
+    val containerColor = if (isHighlight)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.surfaceContainer
+
+    // Automatically get the matching content color
+    val contentColor = MaterialTheme.colorScheme.contentColorFor(containerColor)
+
+    // Create a variant color based on the content color for secondary text
+    val variantContentColor = contentColor.copy(alpha = 0.7f)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(
-            0.dp, // if (isHighlight) 1.dp else 4.dp
-        ),
+        elevation = CardDefaults.cardElevation(0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isHighlight)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surfaceContainer
+            containerColor = containerColor,
+            contentColor = contentColor
         )
     ) {
         Column(
@@ -566,16 +589,18 @@ fun PermissionCard(
             horizontalAlignment = Alignment.Start
         ) {
             Text(
-                // 直接使用我们计算好的标签
+                // Use the calculated label
                 text = permissionLabel,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                // Inherits contentColor from Card by default, but you can explicitly set it
+                color = contentColor,
             )
             Text(
-                // 副标题仍然显示原始权限字符串
+                // Subtitle shows the original permission string
                 text = permission,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Use the variant color
+                color = variantContentColor,
             )
         }
     }

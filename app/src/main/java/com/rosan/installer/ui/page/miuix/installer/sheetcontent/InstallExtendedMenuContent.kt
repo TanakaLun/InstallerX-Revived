@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.installer.sheetcontent
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -21,21 +23,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.data.app.util.rememberInstallOptions
-import com.rosan.installer.data.installer.model.entity.ExtendedMenuEntity
-import com.rosan.installer.data.installer.model.entity.ExtendedMenuItemEntity
-import com.rosan.installer.data.installer.repo.InstallerRepo
-import com.rosan.installer.data.settings.model.datastore.entity.NamedPackage
-import com.rosan.installer.data.settings.model.room.entity.ConfigEntity
+import com.rosan.installer.domain.session.model.ExtendedMenuEntity
+import com.rosan.installer.domain.session.model.ExtendedMenuItemEntity
+import com.rosan.installer.domain.session.repository.InstallerSessionRepository
+import com.rosan.installer.domain.settings.model.Authorizer
+import com.rosan.installer.domain.settings.model.NamedPackage
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction.SetInstaller
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction.SetTargetUser
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
+import com.rosan.installer.ui.page.main.installer.components.rememberInstallOptions
 import com.rosan.installer.ui.page.main.installer.dialog.inner.InstallExtendedMenuAction
 import com.rosan.installer.ui.page.miuix.widgets.MiuixSwitchWidget
-import com.rosan.installer.ui.theme.LocalIsDark
+import com.rosan.installer.ui.theme.InstallerTheme
 import com.rosan.installer.ui.theme.miuixSheetCardColorDark
 import com.rosan.installer.ui.util.isGestureNavigation
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -51,26 +54,30 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 @Composable
 fun InstallExtendedMenuContent(
-    installer: InstallerRepo,
+    session: InstallerSessionRepository,
     viewModel: InstallerViewModel
 ) {
-    val isDarkMode = LocalIsDark.current
-    val installOptions = rememberInstallOptions(installer.config.authorizer)
-    val installFlags by viewModel.installFlags.collectAsState()
-    val managedPackages by viewModel.managedInstallerPackages.collectAsState()
-    val selectedInstallerPackageName by viewModel.selectedInstaller.collectAsState()
-    val defaultInstallerFromSettings by viewModel.defaultInstallerFromSettings.collectAsState()
+    val isDarkMode = InstallerTheme.isDark
+    val installOptions = rememberInstallOptions(session.config.authorizer)
+
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val installFlags = uiState.installFlags
+    val managedPackages = uiState.managedInstallerPackages
+    val selectedInstallerPackageName = uiState.selectedInstaller
+    val defaultInstallerFromSettings = uiState.defaultInstallerFromSettings
+    val availableUsers = uiState.availableUsers
+    val selectedUserId = uiState.selectedUserId
+
     val selectedInstaller = remember(selectedInstallerPackageName, managedPackages) {
         managedPackages.find { it.packageName == selectedInstallerPackageName }
     }
-    val availableUsers by viewModel.availableUsers.collectAsState()
-    val selectedUserId by viewModel.selectedUserId.collectAsState()
-    val customizeUserEnabled = installer.config.enableCustomizeUser
+
+    val customizeUserEnabled = session.config.enableCustomizeUser
     val menuEntities = remember(installOptions, selectedInstaller, customizeUserEnabled, selectedUserId, availableUsers) {
         buildList {
             // Installer selection
-            if (installer.config.authorizer == ConfigEntity.Authorizer.Root ||
-                installer.config.authorizer == ConfigEntity.Authorizer.Shizuku
+            if (session.config.authorizer == Authorizer.Root ||
+                session.config.authorizer == Authorizer.Shizuku
             ) {
                 add(
                     ExtendedMenuEntity(
@@ -85,8 +92,8 @@ fun InstallExtendedMenuContent(
             }
 
             // User selection
-            if ((installer.config.authorizer == ConfigEntity.Authorizer.Root ||
-                        installer.config.authorizer == ConfigEntity.Authorizer.Shizuku
+            if ((session.config.authorizer == Authorizer.Root ||
+                        session.config.authorizer == Authorizer.Shizuku
                         ) && customizeUserEnabled
             ) {
                 add(
@@ -102,8 +109,8 @@ fun InstallExtendedMenuContent(
             }
 
             // Dynamic install options
-            if (installer.config.authorizer == ConfigEntity.Authorizer.Root ||
-                installer.config.authorizer == ConfigEntity.Authorizer.Shizuku
+            if (session.config.authorizer == Authorizer.Root ||
+                session.config.authorizer == Authorizer.Shizuku
             ) {
                 installOptions.forEach { option ->
                     add(
@@ -120,6 +127,10 @@ fun InstallExtendedMenuContent(
                 }
             }
         }.toMutableStateList()
+    }
+
+    BackHandler {
+        viewModel.dispatch(InstallerViewAction.InstallPrepare)
     }
 
     Column(
@@ -148,11 +159,6 @@ fun InstallExtendedMenuContent(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            /*TextButton(
-                onClick = { viewModel.dispatch(InstallerViewAction.Close) },
-                text = stringResource(R.string.cancel),
-                modifier = Modifier.weight(1f),
-            )*/
             TextButton(
                 onClick = { viewModel.dispatch(InstallerViewAction.InstallPrepare) },
                 text = stringResource(R.string.back),

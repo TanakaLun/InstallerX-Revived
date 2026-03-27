@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.installer.sheetcontent
 
 import androidx.compose.foundation.layout.Arrangement
@@ -10,21 +12,22 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.data.app.util.PackageManagerUtil
+import com.rosan.installer.data.engine.executor.PackageManagerUtil
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
 import com.rosan.installer.ui.page.miuix.widgets.MiuixCheckboxWidget
-import com.rosan.installer.ui.theme.LocalIsDark
+import com.rosan.installer.ui.theme.InstallerTheme
 import com.rosan.installer.ui.theme.miuixSheetCardColorDark
 import com.rosan.installer.ui.util.isGestureNavigation
+import com.rosan.installer.util.hasFlag
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardColors
@@ -38,22 +41,22 @@ fun UninstallPrepareContent(
     onCancel: () -> Unit,
     onUninstall: () -> Unit
 ) {
-    val isDarkMode = LocalIsDark.current
-    val uninstallInfo by viewModel.uiUninstallInfo.collectAsState()
-    val info = uninstallInfo ?: return
+    val isDarkMode = InstallerTheme.isDark
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val info = uiState.uiUninstallInfo ?: return
+    val uninstallFlags = uiState.uninstallFlags
 
-    val uninstallFlags by viewModel.uninstallFlags.collectAsState()
-    val deleteKeepData = (uninstallFlags and PackageManagerUtil.DELETE_KEEP_DATA) != 0
-    val deleteAllUsers = (uninstallFlags and PackageManagerUtil.DELETE_ALL_USERS) != 0
-    val deleteSystemApp = (uninstallFlags and PackageManagerUtil.DELETE_SYSTEM_APP) != 0
+    val deleteKeepData = uninstallFlags.hasFlag(PackageManagerUtil.DELETE_KEEP_DATA)
+    val deleteAllUsers = uninstallFlags.hasFlag(PackageManagerUtil.DELETE_ALL_USERS)
+    val deleteSystemApp = uninstallFlags.hasFlag(PackageManagerUtil.DELETE_SYSTEM_APP)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         AppInfoSlot(
-            AppInfoState(
-                icon = info.appIcon,
+            appInfo = AppInfoState(
+                icon = uiState.displayIcons[info.packageName],
                 label = info.appLabel ?: "Unknown App",
                 packageName = info.packageName
             )
@@ -124,12 +127,17 @@ fun UninstallPrepareContent(
             TextButton(
                 text = stringResource(R.string.cancel),
                 modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.textButtonColors(
+                    color = if (isDynamicColor) MiuixTheme.colorScheme.secondaryContainer else MiuixTheme.colorScheme.secondaryVariant,
+                    textColor = if (isDynamicColor) MiuixTheme.colorScheme.onSecondaryContainer else MiuixTheme.colorScheme.onSecondaryVariant
+                ),
                 onClick = onCancel,
             )
             TextButton(
                 text = stringResource(R.string.uninstall),
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColors(
+                    color = if (isDynamicColor) MiuixTheme.colorScheme.secondaryContainer else MiuixTheme.colorScheme.secondaryVariant,
                     textColor = MaterialTheme.colorScheme.error
                 ),
                 onClick = onUninstall,

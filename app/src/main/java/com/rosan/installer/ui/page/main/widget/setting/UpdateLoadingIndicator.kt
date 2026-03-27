@@ -1,5 +1,6 @@
 package com.rosan.installer.ui.page.main.widget.setting
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -29,8 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rosan.installer.R
-import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewEvent
-import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.subpage.about.AboutEvent
+import com.rosan.installer.ui.page.main.settings.preferred.subpage.about.AboutViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -40,16 +41,21 @@ import dev.chrisbanes.haze.hazeEffect
 @Composable
 fun UpdateLoadingIndicator(
     hazeState: HazeState?,
-    viewModel: PreferredViewModel
+    viewModel: AboutViewModel
 ) {
     var showUpdateLoading by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showUpdateLoading) {
+        // 这里留空，代表拦截返回事件但不执行任何操作
+        // 如果想给用户提示，可以在这里 emit 一个 Toast 事件
+    }
 
     LaunchedEffect(Unit) {
         viewModel.uiEvents.collect { event ->
             when (event) {
-                is PreferredViewEvent.ShowUpdateLoading -> showUpdateLoading = true
-                is PreferredViewEvent.HideUpdateLoading -> showUpdateLoading = false
-                is PreferredViewEvent.ShowInAppUpdateErrorDetail -> showUpdateLoading = false
+                is AboutEvent.ShowUpdateLoading -> showUpdateLoading = true
+                is AboutEvent.HideUpdateLoading -> showUpdateLoading = false
+                is AboutEvent.ShowInAppUpdateErrorDetail -> showUpdateLoading = false
                 else -> null
             }
         }

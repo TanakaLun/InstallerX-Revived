@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.installer.sheetcontent
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -20,12 +22,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.data.app.model.entity.AppEntity
-import com.rosan.installer.data.app.util.sortedBest
-import com.rosan.installer.data.installer.repo.InstallerRepo
+import com.rosan.installer.domain.engine.model.AppEntity
+import com.rosan.installer.domain.engine.model.sortedBest
+import com.rosan.installer.domain.session.repository.InstallerSessionRepository
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
-import com.rosan.installer.ui.theme.LocalIsDark
+import com.rosan.installer.ui.theme.InstallerTheme
 import com.rosan.installer.ui.theme.miuixSheetCardColorDark
 import com.rosan.installer.ui.util.isGestureNavigation
 import com.rosan.installer.util.pm.getBestPermissionLabel
@@ -39,13 +42,14 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
 
 @Composable
 fun InstallPreparePermissionContent(
-    installer: InstallerRepo,
+    session: InstallerSessionRepository,
     viewModel: InstallerViewModel,
     onBack: () -> Unit
 ) {
-    val isDarkMode = LocalIsDark.current
-    val currentPackageName by viewModel.currentPackageName.collectAsState()
-    val currentPackage = installer.analysisResults.find { it.packageName == currentPackageName }
+    val isDarkMode = InstallerTheme.isDark
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentPackageName = uiState.currentPackageName
+    val currentPackage = session.analysisResults.find { it.packageName == currentPackageName }
 
     val entity = currentPackage?.appEntities
         ?.filter { it.selected }
@@ -55,6 +59,10 @@ fun InstallPreparePermissionContent(
     val permissionList = remember(entity) {
         (entity as? AppEntity.BaseEntity)?.permissions?.sorted()?.toMutableStateList()
             ?: mutableStateListOf()
+    }
+
+    BackHandler {
+        onBack()
     }
 
     Column(

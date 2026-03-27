@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 iamr0s, InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.installer
 
-import com.rosan.installer.data.installer.model.entity.SelectInstallEntity
-import com.rosan.installer.data.installer.repo.InstallerRepo
+import androidx.annotation.StringRes
+import com.rosan.installer.domain.engine.model.AppEntity
+import com.rosan.installer.domain.session.model.SelectInstallEntity
+import com.rosan.installer.domain.session.repository.InstallerSessionRepository
 
 sealed class InstallerViewAction {
-    data class CollectRepo(val repo: InstallerRepo) : InstallerViewAction()
+    data class CollectSession(val session: InstallerSessionRepository) : InstallerViewAction()
     data object Close : InstallerViewAction()
     data object Analyse : InstallerViewAction()
     data object InstallChoice : InstallerViewAction()
@@ -15,7 +19,7 @@ sealed class InstallerViewAction {
      * Install multiple module/apk
      *
      * **This ViewAction will forward to ActionHandler to actually process**
-     * @see com.rosan.installer.data.installer.model.impl.InstallerRepoImpl.Action.InstallMultiple
+     * @see com.rosan.installer.data.session.repository.InstallerSessionRepositoryImpl.Action.InstallMultiple
      */
     data object InstallMultiple : InstallerViewAction()
     data object InstallPrepare : InstallerViewAction()
@@ -26,7 +30,7 @@ sealed class InstallerViewAction {
      * **This ViewAction will forward to ActionHandler to actually process**
      *
      * @param triggerAuth request or not request user biometric auth
-     * @see com.rosan.installer.data.installer.model.impl.InstallerRepoImpl.Action.Install
+     * @see com.rosan.installer.data.session.repository.InstallerSessionRepositoryImpl.Action.Install
      */
     data class Install(val triggerAuth: Boolean) : InstallerViewAction()
     data object Background : InstallerViewAction()
@@ -78,4 +82,22 @@ sealed class InstallerViewAction {
      * @param conflictingPackage The package name of the conflicting app, if any.
      */
     data class UninstallAndRetryInstall(val keepData: Boolean, val conflictingPackage: String? = null) : InstallerViewAction()
+
+    /**
+     * Share the selected app file.
+     * @param appEntity The app entity containing the file to share.
+     */
+    data class ShareApp(val appEntity: AppEntity) : InstallerViewAction()
+
+    /**
+     * Triggers a toast message using a String.
+     * @param message The message to display.
+     */
+    data class ShowToast(val message: String) : InstallerViewAction()
+
+    /**
+     * Triggers a toast message using a String Resource ID.
+     * @param messageResId The resource ID of the message to display.
+     */
+    data class ShowToastRes(@param:StringRes val messageResId: Int) : InstallerViewAction()
 }

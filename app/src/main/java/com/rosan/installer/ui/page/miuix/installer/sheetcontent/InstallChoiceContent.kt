@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.installer.sheetcontent
 
 import androidx.compose.animation.AnimatedVisibility
@@ -28,14 +30,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rosan.installer.R
-import com.rosan.installer.data.app.model.entity.AppEntity
-import com.rosan.installer.data.app.model.entity.PackageAnalysisResult
-import com.rosan.installer.data.app.model.enums.DataType
-import com.rosan.installer.data.app.model.enums.MmzSelectionMode
-import com.rosan.installer.data.app.model.enums.SessionMode
-import com.rosan.installer.data.app.util.getDisplayName
-import com.rosan.installer.data.app.util.getSplitDisplayName
-import com.rosan.installer.data.installer.repo.InstallerRepo
+import com.rosan.installer.data.engine.parser.getDisplayName
+import com.rosan.installer.data.engine.parser.getSplitDisplayName
+import com.rosan.installer.domain.engine.model.AppEntity
+import com.rosan.installer.domain.engine.model.DataType
+import com.rosan.installer.domain.engine.model.MmzSelectionMode
+import com.rosan.installer.domain.engine.model.PackageAnalysisResult
+import com.rosan.installer.domain.engine.model.SessionMode
+import com.rosan.installer.domain.session.repository.InstallerSessionRepository
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
 import com.rosan.installer.ui.page.miuix.widgets.MiuixCheckboxWidget
@@ -43,7 +45,7 @@ import com.rosan.installer.ui.page.miuix.widgets.MiuixInstallerTipCard
 import com.rosan.installer.ui.page.miuix.widgets.MiuixMultiApkCheckboxWidget
 import com.rosan.installer.ui.page.miuix.widgets.MiuixNavigationItemWidget
 import com.rosan.installer.ui.page.miuix.widgets.WarningCard
-import com.rosan.installer.ui.theme.LocalIsDark
+import com.rosan.installer.ui.theme.InstallerTheme
 import com.rosan.installer.ui.theme.miuixSheetCardColorDark
 import com.rosan.installer.ui.util.getSupportSubtitle
 import com.rosan.installer.ui.util.isGestureNavigation
@@ -62,12 +64,12 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 @Composable
 fun InstallChoiceContent(
-    installer: InstallerRepo,
+    session: InstallerSessionRepository,
     viewModel: InstallerViewModel,
     onCancel: () -> Unit
 ) {
-    val isDarkMode = LocalIsDark.current
-    val analysisResults = installer.analysisResults
+    val isDarkMode = InstallerTheme.isDark
+    val analysisResults = session.analysisResults
     val sourceType = analysisResults.firstOrNull()?.appEntities?.firstOrNull()?.app?.sourceType ?: DataType.NONE
     val currentSessionMode = analysisResults.firstOrNull()?.sessionMode ?: SessionMode.Single
     val isMultiApk = currentSessionMode == SessionMode.Batch
@@ -128,7 +130,7 @@ fun InstallChoiceContent(
                     analysisResults = analysisResults,
                     viewModel = viewModel,
                     isDarkMode = isDarkMode,
-                    apkChooseAll = installer.config.apkChooseAll,
+                    apkChooseAll = session.config.apkChooseAll,
                     onSelectModule = { viewModel.dispatch(InstallerViewAction.InstallPrepare) }
                 ) { selectionMode = MmzSelectionMode.APK_CHOICE }
             }
@@ -188,6 +190,10 @@ fun InstallChoiceContent(
                         }
                     },
                     text = stringResource(if (isBack) R.string.back else R.string.cancel),
+                    colors = ButtonDefaults.textButtonColors(
+                        color = if (isDynamicColor) MiuixTheme.colorScheme.secondaryContainer else MiuixTheme.colorScheme.secondaryVariant,
+                        textColor = if (isDynamicColor) MiuixTheme.colorScheme.onSecondaryContainer else MiuixTheme.colorScheme.onSecondaryVariant
+                    ),
                     modifier = Modifier.weight(1f),
                 )
             }

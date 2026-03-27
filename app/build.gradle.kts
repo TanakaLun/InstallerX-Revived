@@ -1,4 +1,19 @@
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Properties
+
+// Get git commit hash safely, compatible with configuration cache
+val gitHash: String = try {
+    providers.exec {
+        commandLine("git", "rev-parse", "--short=7", "HEAD")
+    }.standardOutput.asText.get().trim()
+} catch (_: Exception) {
+    "unknown"
+}
+
+val manualVersionName = project.findProperty("VERSION_NAME") as String?
+val dynamicVersionName: String = LocalDate.now().format(DateTimeFormatter.ofPattern("yy.MM"))
+val baseVersionName: String = manualVersionName ?: dynamicVersionName
 
 plugins {
     alias(libs.plugins.agp.app)
@@ -10,7 +25,8 @@ plugins {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = 37
+    compileSdkMinor = 0
 
     val properties = Properties()
     val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -38,16 +54,18 @@ android {
             ?: "com.rosan.installer.x.revived"
         namespace = "com.rosan.installer"
         minSdk = 26
-        targetSdk = 36
-        // Version control
-        // GitHub Actions will automatically use versionName A.B.C+1 when building preview releases
-        // update versionCode and versionName before manually trigger a stable release
-        versionCode = 46
-        versionName = project.findProperty("VERSION_NAME") as String?
-            ?: project.findProperty("BASE_VERSION") as String
+        targetSdk = 37
+        // Version control:
+        // - versionName is auto-generated as "yy.MM" by default,
+        //   or manually set via the VERSION_NAME Gradle property.
+        // - Unstable and Preview builds automatically append the git commit hash
+        //   (e.g., "25.07.abc1234"), configured in productFlavors.
+        // - Stable builds use the base versionName as-is (e.g., "25.07").
+        // - versionCode must be incremented manually before each Stable release.
+        versionCode = 47
+        versionName = baseVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
     }
 
     signingConfigs {
@@ -69,7 +87,7 @@ android {
         getByName("debug") {
             signingConfig =
                 if (hasCustomSigning) {
-                    println("Applying 'releaseCustom' signing to debug build.")
+                    println("Applying custom signing to debug build.")
                     signingConfigs.getByName("releaseCustom")
                 } else {
                     println("No custom signing info. Debug build will use the default debug keystore.")
@@ -85,10 +103,10 @@ android {
         getByName("release") {
             signingConfig =
                 if (hasCustomSigning) {
-                    println("Applying 'releaseCustom' signing to release build.")
+                    println("Applying custom signing to release build.")
                     signingConfigs.getByName("releaseCustom")
                 } else {
-                    println("No custom signing info. Debug build will use the default debug keystore.")
+                    println("No custom signing info. Release build will use the default debug keystore.")
                     signingConfigs.getByName("debug")
                 }
             isShrinkResources = true
@@ -105,28 +123,31 @@ android {
     productFlavors {
         create("online") {
             dimension = "connectivity"
-            // Set the build config field for this flavor.
             buildConfigField("boolean", "INTERNET_ACCESS_ENABLED", "true")
             isDefault = true
         }
 
         create("offline") {
             dimension = "connectivity"
-            // Set the build config field for this flavor.
             buildConfigField("boolean", "INTERNET_ACCESS_ENABLED", "false")
         }
 
         create("Unstable") {
             dimension = "level"
             isDefault = true
+            versionNameSuffix = ".$gitHash"
+            buildConfigField("int", "BUILD_LEVEL", "0")
         }
 
         create("Preview") {
             dimension = "level"
+            versionNameSuffix = ".$gitHash"
+            buildConfigField("int", "BUILD_LEVEL", "1")
         }
 
         create("Stable") {
             dimension = "level"
+            buildConfigField("int", "BUILD_LEVEL", "2")
         }
     }
 
@@ -150,31 +171,6 @@ android {
 
 kotlin {
     jvmToolchain(25)
-}
-
-androidComponents {
-    onVariants { variant ->
-        val level = variant.productFlavors
-            .firstOrNull { it.first == "level" }
-            ?.second
-            ?.let {
-                when (it) {
-                    "Unstable" -> 0
-                    "Preview" -> 1
-                    "Stable" -> 2
-                    else -> 0
-                }
-            } ?: 0
-
-        variant.buildConfigFields?.put(
-            "BUILD_LEVEL",
-            com.android.build.api.variant.BuildConfigField(
-                "int",
-                level.toString(),
-                null
-            )
-        )
-    }
 }
 
 aboutLibraries {
@@ -225,8 +221,6 @@ dependencies {
     implementation(libs.koin.compose)
     implementation(libs.koin.compose.viewmodel)
 
-    implementation(libs.accompanist.drawablepainter)
-
     implementation(libs.rikka.shizuku.api)
     implementation(libs.rikka.shizuku.provider)
 
@@ -247,13 +241,13 @@ dependencies {
     implementation(libs.miuix)
     implementation(libs.miuix.icons)
     implementation(libs.capsule)
+    implementation(libs.backdrop)
     // haze
     implementation(libs.haze)
     implementation(libs.haze.materials)
 
-    // m3color
-    // implementation(libs.m3color)
     // okhttp
+    implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp)
 
     // monetcompat

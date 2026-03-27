@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.config.apply
 
 import androidx.compose.animation.AnimatedContent
@@ -16,10 +18,17 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -74,25 +83,32 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rosan.installer.R
-import com.rosan.installer.ui.common.ViewContent
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.widget.chip.Chip
 import com.rosan.installer.ui.page.main.widget.setting.AppBackButton
 import com.rosan.installer.ui.page.main.widget.setting.ApplyItemWidget
 import com.rosan.installer.ui.page.main.widget.setting.LabelWidget
 import com.rosan.installer.ui.theme.bottomShape
+import com.rosan.installer.ui.theme.getM3TopBarColor
+import com.rosan.installer.ui.theme.installerHazeEffect
 import com.rosan.installer.ui.theme.middleShape
 import com.rosan.installer.ui.theme.none
+import com.rosan.installer.ui.theme.rememberMaterial3HazeStyle
 import com.rosan.installer.ui.theme.singleShape
 import com.rosan.installer.ui.theme.topShape
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -106,10 +122,11 @@ fun NewApplyPage(
         parametersOf(id)
     }
 ) {
-    LaunchedEffect(Unit) { viewModel.dispatch(ApplyViewAction.Init) }
-
+    val uiState by viewModel.state.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
+    val hazeState = if (uiState.useBlur) remember { HazeState() } else null
+    val hazeStyle = rememberMaterial3HazeStyle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var showBottomSheet by remember { mutableStateOf(false) }
     val showFloating by remember {
@@ -117,6 +134,9 @@ fun NewApplyPage(
             lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0
         }
     }
+
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
 
     Scaffold(
         modifier = Modifier
@@ -127,6 +147,7 @@ fun NewApplyPage(
         topBar = {
             var searchBarActivated by remember { mutableStateOf(false) }
             TopAppBar(
+                modifier = Modifier.installerHazeEffect(hazeState, hazeStyle),
                 windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
                 scrollBehavior = scrollBehavior,
                 title = {
@@ -137,7 +158,7 @@ fun NewApplyPage(
                             val focusRequester = remember { FocusRequester() }
                             OutlinedTextField(
                                 modifier = Modifier.focusRequester(focusRequester),
-                                value = viewModel.state.search,
+                                value = uiState.search,
                                 onValueChange = { viewModel.dispatch(ApplyViewAction.Search(it)) },
                                 singleLine = true,
                                 leadingIcon = {
@@ -170,6 +191,11 @@ fun NewApplyPage(
                         }
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = hazeState.getM3TopBarColor(),
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    scrolledContainerColor = hazeState.getM3TopBarColor()
+                ),
                 navigationIcon = {
                     Row {
                         AppBackButton(
@@ -197,11 +223,7 @@ fun NewApplyPage(
                             contentDescription = stringResource(R.string.menu)
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                )
+                }
             )
         },
         floatingActionButton = {
@@ -209,7 +231,10 @@ fun NewApplyPage(
                 visible = showFloating,
                 enter = scaleIn(),
                 exit = scaleOut(),
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(
+                    end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
+                    bottom = 16.dp
+                )
             ) {
                 FloatingActionButton({
                     coroutineScope.launch {
@@ -219,19 +244,21 @@ fun NewApplyPage(
                     Icon(imageVector = AppIcons.ArrowUp, contentDescription = null)
                 }
             }
-        }) { contentPadding ->
-        Box(modifier = Modifier.padding(contentPadding)) {
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize()) {
             when {
-                viewModel.state.apps.progress is ViewContent.Progress.Loading && viewModel.state.apps.data.isEmpty() -> {
+                uiState.apps.progress is ViewContent.Progress.Loading && uiState.apps.data.isEmpty() -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            //  M3E 风格的加载指示器
                             ContainedLoadingIndicator()
                             Text(
                                 text = stringResource(id = R.string.loading),
@@ -242,7 +269,7 @@ fun NewApplyPage(
                 }
 
                 else -> {
-                    val refreshing = viewModel.state.apps.progress is ViewContent.Progress.Loading
+                    val refreshing = uiState.apps.progress is ViewContent.Progress.Loading
                     val pullToRefreshState = rememberPullToRefreshState()
 
                     PullToRefreshBox(
@@ -261,9 +288,16 @@ fun NewApplyPage(
                         }
                     ) {
                         ItemsWidget(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(hazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
+                            uiState = uiState,
                             viewModel = viewModel,
-                            lazyListState = lazyListState
+                            lazyListState = lazyListState,
+                            topPadding = paddingValues.calculateTopPadding(),
+                            bottomPadding = paddingValues.calculateBottomPadding(),
+                            startPadding = horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                            endPadding = horizontalSafeInsets.calculateEndPadding(layoutDirection)
                         )
                     }
                 }
@@ -272,19 +306,24 @@ fun NewApplyPage(
     }
 
     if (showBottomSheet) ModalBottomSheet(onDismissRequest = { showBottomSheet = false }) {
-        BottomSheetContent(viewModel)
+        BottomSheetContent(uiState = uiState, viewModel = viewModel)
     }
 }
 
 @Composable
 private fun ItemsWidget(
     modifier: Modifier,
+    uiState: ApplyViewState,
     viewModel: ApplyViewModel,
     lazyListState: LazyListState,
+    topPadding: Dp = 0.dp,
+    bottomPadding: Dp = 0.dp,
+    startPadding: Dp = 0.dp,
+    endPadding: Dp = 0.dp
 ) {
-    val appliedPackageSet by remember(viewModel.state.appEntities.data) {
+    val appliedPackageSet by remember(uiState.appEntities.data) {
         derivedStateOf {
-            viewModel.state.appEntities.data.map { it.packageName }.toHashSet()
+            uiState.appEntities.data.map { it.packageName }.toHashSet()
         }
     }
 
@@ -292,9 +331,14 @@ private fun ItemsWidget(
         modifier = modifier,
         state = lazyListState,
         verticalArrangement = Arrangement.spacedBy(2.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        contentPadding = PaddingValues(
+            start = startPadding + 16.dp,
+            top = topPadding + 8.dp,
+            end = endPadding + 16.dp,
+            bottom = bottomPadding + 88.dp
+        )
     ) {
-        val apps = viewModel.state.checkedApps
+        val apps = uiState.checkedApps
         itemsIndexed(
             items = apps,
             key = { _, app -> app.packageName },
@@ -309,6 +353,14 @@ private fun ItemsWidget(
 
             val isApplied = appliedPackageSet.contains(app.packageName)
 
+            // Dispatch action to load the icon dynamically when the item becomes visible
+            LaunchedEffect(app.packageName) {
+                viewModel.dispatch(ApplyViewAction.LoadIcon(app.packageName))
+            }
+
+            // Retrieve the dynamically loaded icon from the managed state
+            val iconBitmap = uiState.displayIcons[app.packageName]
+
             ApplyItemWidget(
                 modifier = Modifier.animateItem(
                     placementSpec = spring(
@@ -317,10 +369,11 @@ private fun ItemsWidget(
                     )
                 ),
                 app = app,
+                icon = iconBitmap,
                 isApplied = isApplied,
                 shape = shape,
                 containerColor = MaterialTheme.colorScheme.surfaceBright,
-                showPackageName = viewModel.state.showPackageName,
+                showPackageName = uiState.showPackageName,
                 onToggle = { isChecked ->
                     viewModel.dispatch(ApplyViewAction.ApplyPackageName(app.packageName, isChecked))
                 },
@@ -329,11 +382,15 @@ private fun ItemsWidget(
                 }
             )
         }
+        item { Spacer(modifier = Modifier.navigationBarsPadding()) }
     }
 }
 
 @Composable
-private fun BottomSheetContent(viewModel: ApplyViewModel) {
+private fun BottomSheetContent(
+    uiState: ApplyViewState,
+    viewModel: ApplyViewModel
+) {
     Box(modifier = Modifier.fillMaxWidth()) {
         CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.titleContentColor) {
             ProvideTextStyle(MaterialTheme.typography.headlineSmall) {
@@ -348,8 +405,8 @@ private fun BottomSheetContent(viewModel: ApplyViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OrderWidget(viewModel)
-        ChipsWidget(viewModel)
+        OrderWidget(uiState = uiState, viewModel = viewModel)
+        ChipsWidget(uiState = uiState, viewModel = viewModel)
     }
 }
 
@@ -372,7 +429,7 @@ private fun OrderWidget(viewModel: ApplyViewModel) {
         OrderData(R.string.sort_by_install_time, ApplyViewState.OrderType.FirstInstallTime)
     )
 
-    val selectedIndex = map.map { it.type }.indexOf(viewModel.state.orderType)
+    val selectedIndex = map.map { it.type }.indexOf(uiState.orderType)
     ToggleRow(selectedIndex = selectedIndex) {
         val a = mutableListOf<String>()
         map.forEachIndexed { index, value ->
@@ -386,7 +443,10 @@ private fun OrderWidget(viewModel: ApplyViewModel) {
 }*/
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun OrderWidget(viewModel: ApplyViewModel) {
+private fun OrderWidget(
+    uiState: ApplyViewState,
+    viewModel: ApplyViewModel
+) {
     val haptic = LocalHapticFeedback.current
 
     LabelWidget(stringResource(R.string.sort), 0.dp)
@@ -399,7 +459,7 @@ private fun OrderWidget(viewModel: ApplyViewModel) {
         OrderData(R.string.sort_by_install_time, ApplyViewState.OrderType.FirstInstallTime)
     )
 
-    val selectedIndex = map.map { it.type }.indexOf(viewModel.state.orderType)
+    val selectedIndex = map.map { it.type }.indexOf(uiState.orderType)
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
@@ -435,15 +495,18 @@ private fun OrderWidget(viewModel: ApplyViewModel) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChipsWidget(viewModel: ApplyViewModel) {
+private fun ChipsWidget(
+    uiState: ApplyViewState,
+    viewModel: ApplyViewModel
+) {
     LabelWidget(stringResource(R.string.more), 0.dp)
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val orderInReverse = viewModel.state.orderInReverse
-        val selectedFirst = viewModel.state.selectedFirst
-        val showSystemApp = viewModel.state.showSystemApp
-        val showPackageName = viewModel.state.showPackageName
+        val orderInReverse = uiState.orderInReverse
+        val selectedFirst = uiState.selectedFirst
+        val showSystemApp = uiState.showSystemApp
+        val showPackageName = uiState.showPackageName
         Chip(
             selected = orderInReverse,
             label = stringResource(R.string.sort_by_reverse_order),

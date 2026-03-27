@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.config.all
 
 import androidx.compose.animation.AnimatedVisibility
@@ -7,13 +9,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -36,27 +42,30 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rosan.installer.R
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.settings.SettingsScreen
-import com.rosan.installer.ui.page.main.widget.card.ScopeTipCard
 import com.rosan.installer.ui.page.main.widget.card.ShowDataWidget
-import com.rosan.installer.ui.page.main.widget.setting.DeleteEventCollector
+import com.rosan.installer.ui.page.main.widget.util.DeleteEventCollector
 import com.rosan.installer.ui.theme.getM3TopBarColor
 import com.rosan.installer.ui.theme.installerHazeEffect
 import com.rosan.installer.ui.theme.none
 import com.rosan.installer.ui.theme.rememberMaterial3HazeStyle
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.collectLatest
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NewAllPage(
     navController: NavController,
-    viewModel: AllViewModel,
+    viewModel: AllViewModel = koinViewModel { parametersOf(navController) },
     outerPadding: PaddingValues = PaddingValues(0.dp),
     hazeState: HazeState? = null
 ) {
@@ -64,7 +73,8 @@ fun NewAllPage(
         viewModel.navController = navController
     }
 
-    val listState = rememberLazyStaggeredGridState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyGridState()
     val hazeStyle = rememberMaterial3HazeStyle()
     val snackBarHostState = remember { SnackbarHostState() }
     val topAppBarState = rememberTopAppBarState()
@@ -96,6 +106,9 @@ fun NewAllPage(
 
     DeleteEventCollector(viewModel, snackBarHostState)
 
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
+
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
@@ -117,7 +130,10 @@ fun NewAllPage(
         },
         floatingActionButton = {
             AnimatedVisibility(
-                modifier = Modifier.padding(bottom = outerPadding.calculateBottomPadding()),
+                modifier = Modifier.padding(
+                    end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
+                    bottom = outerPadding.calculateBottomPadding()
+                ),
                 visible = showFloating,
                 enter = scaleIn(),
                 exit = scaleOut()
@@ -141,10 +157,15 @@ fun NewAllPage(
         snackbarHost = { SnackbarHost(hostState = snackBarHostState) },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            when (viewModel.state.data.progress) {
-                is AllViewState.Data.Progress.Loading if viewModel.state.data.configs.isEmpty() -> {
+            when (uiState.data.progress) {
+                is AllViewState.Data.Progress.Loading if uiState.data.configs.isEmpty() -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(
+                                top = innerPadding.calculateTopPadding(),
+                                bottom = outerPadding.calculateBottomPadding()
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -163,33 +184,23 @@ fun NewAllPage(
                     }
                 }
 
-                is AllViewState.Data.Progress.Loaded if viewModel.state.data.configs.isEmpty() -> {
+                is AllViewState.Data.Progress.Loaded if uiState.data.configs.isEmpty() -> {
                     // Since we don't allow removing default profile,
                     // There is no need to handle an empty state.
                 }
 
                 else -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = innerPadding.calculateTopPadding())
-                    ) {
-                        if (!viewModel.state.userReadScopeTips) {
-                            ScopeTipCard(viewModel = viewModel)
-                            Spacer(modifier = Modifier.size(8.dp))
-                        }
-                        ShowDataWidget(
-                            viewModel = viewModel,
-                            listState = listState,
-                            hazeState = hazeState,
-                            contentPadding = PaddingValues(
-                                top = 16.dp,
-                                bottom = outerPadding.calculateBottomPadding() + 16.dp,
-                                start = 16.dp,
-                                end = 16.dp
-                            )
+                    ShowDataWidget(
+                        viewModel = viewModel,
+                        listState = listState,
+                        hazeState = hazeState,
+                        contentPadding = PaddingValues(
+                            top = innerPadding.calculateTopPadding() + 16.dp,
+                            bottom = outerPadding.calculateBottomPadding() + 16.dp,
+                            start = 16.dp + horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                            end = 16.dp + horizontalSafeInsets.calculateEndPadding(layoutDirection)
                         )
-                    }
+                    )
                 }
             }
         }

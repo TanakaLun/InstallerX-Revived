@@ -1,17 +1,22 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.preferred
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -30,39 +35,42 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rosan.installer.R
-import com.rosan.installer.build.RsConfig
-import com.rosan.installer.build.model.entity.Level
-import com.rosan.installer.data.settings.model.room.entity.ConfigEntity
+import com.rosan.installer.core.env.AppConfig
+import com.rosan.installer.domain.device.model.Level
+import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
+import com.rosan.installer.domain.settings.model.Authorizer
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.settings.SettingsScreen
 import com.rosan.installer.ui.page.main.widget.card.InfoTipCard
 import com.rosan.installer.ui.page.main.widget.dialog.ErrorDisplayDialog
 import com.rosan.installer.ui.page.main.widget.setting.AutoLockInstaller
-import com.rosan.installer.ui.page.main.widget.setting.ClearCache
 import com.rosan.installer.ui.page.main.widget.setting.DefaultInstaller
 import com.rosan.installer.ui.page.main.widget.setting.DisableAdbVerify
 import com.rosan.installer.ui.page.main.widget.setting.IgnoreBatteryOptimizationSetting
-import com.rosan.installer.ui.page.main.widget.setting.OnLifecycleEvent
 import com.rosan.installer.ui.page.main.widget.setting.SettingsAboutItemWidget
 import com.rosan.installer.ui.page.main.widget.setting.SettingsNavigationItemWidget
 import com.rosan.installer.ui.page.main.widget.setting.SplicedColumnGroup
+import com.rosan.installer.ui.page.main.widget.util.OnLifecycleEvent
 import com.rosan.installer.ui.theme.getM3TopBarColor
 import com.rosan.installer.ui.theme.installerHazeEffect
 import com.rosan.installer.ui.theme.none
 import com.rosan.installer.ui.theme.rememberMaterial3HazeStyle
-import com.rosan.installer.util.OSUtils
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
+@SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NewPreferredPage(
@@ -71,7 +79,9 @@ fun NewPreferredPage(
     outerPadding: PaddingValues = PaddingValues(0.dp),
     hazeState: HazeState? = null
 ) {
-    val state = viewModel.state
+    val context = LocalContext.current
+    val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val capabilityProvider = koinInject<DeviceCapabilityProvider>()
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState)
 
@@ -79,7 +89,7 @@ fun NewPreferredPage(
         viewModel.dispatch(PreferredViewAction.RefreshIgnoreBatteryOptimizationStatus)
     }
 
-    val revLevel = when (RsConfig.LEVEL) {
+    val revLevel = when (AppConfig.LEVEL) {
         Level.STABLE -> stringResource(id = R.string.stable)
         Level.PREVIEW -> stringResource(id = R.string.preview)
         Level.UNSTABLE -> stringResource(id = R.string.unstable)
@@ -87,16 +97,9 @@ fun NewPreferredPage(
 
     val hazeStyle = rememberMaterial3HazeStyle()
 
-    var updateErrorInfo by remember {
-        mutableStateOf<PreferredViewEvent.ShowInAppUpdateErrorDetail?>(
-            null
-        )
-    }
     val snackBarHostState = remember { SnackbarHostState() }
     var errorDialogInfo by remember {
-        mutableStateOf<PreferredViewEvent.ShowDefaultInstallerErrorDetail?>(
-            null
-        )
+        mutableStateOf<PreferredViewEvent.ShowDefaultInstallerErrorDetail?>(null)
     }
 
     val detailLabel = stringResource(id = R.string.details)
@@ -106,12 +109,12 @@ fun NewPreferredPage(
             snackBarHostState.currentSnackbarData?.dismiss()
             when (event) {
                 is PreferredViewEvent.ShowDefaultInstallerResult -> {
-                    snackBarHostState.showSnackbar(event.message)
+                    snackBarHostState.showSnackbar(context.getString(event.messageResId))
                 }
 
                 is PreferredViewEvent.ShowDefaultInstallerErrorDetail -> {
                     val snackbarResult = snackBarHostState.showSnackbar(
-                        message = event.title,
+                        message = context.getString(event.titleResId),
                         actionLabel = detailLabel,
                         duration = SnackbarDuration.Short
                     )
@@ -119,15 +122,12 @@ fun NewPreferredPage(
                         errorDialogInfo = event
                     }
                 }
-
-                is PreferredViewEvent.ShowInAppUpdateErrorDetail -> {
-                    updateErrorInfo = event
-                }
-
-                else -> null
             }
         }
     }
+
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
 
     Scaffold(
         modifier = Modifier
@@ -155,156 +155,129 @@ fun NewPreferredPage(
             )
         },
     ) { paddingValues ->
-        when (state.progress) {
-            is PreferredViewState.Progress.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(hazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
+            contentPadding = PaddingValues(
+                start = horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                top = paddingValues.calculateTopPadding(),
+                end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
+                bottom = outerPadding.calculateBottomPadding()
+            )
+        ) {
+            // --- Global Settings Group ---
+            item {
+                SplicedColumnGroup(
+                    title = stringResource(R.string.personalization)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        ContainedLoadingIndicator(
-                            indicatorColor = MaterialTheme.colorScheme.primary,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    item {
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.Theme,
+                            title = stringResource(R.string.theme_settings),
+                            description = stringResource(R.string.theme_settings_desc),
+                            onClick = { navController.navigate(SettingsScreen.Theme.route) }
                         )
-                        Text(
-                            text = stringResource(id = R.string.loading),
-                            style = MaterialTheme.typography.titleLarge
+                    }
+                    item {
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.InstallMode,
+                            title = stringResource(R.string.installer_settings),
+                            description = stringResource(R.string.installer_settings_desc),
+                            onClick = { navController.navigate(SettingsScreen.InstallerGlobal.route) }
+                        )
+                    }
+                    item {
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.Delete,
+                            title = stringResource(R.string.uninstaller_settings),
+                            description = stringResource(R.string.uninstaller_settings_desc),
+                            onClick = { navController.navigate(SettingsScreen.UninstallerGlobal.route) }
                         )
                     }
                 }
             }
 
-            is PreferredViewState.Progress.Loaded -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(hazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
-                    contentPadding = PaddingValues(
-                        top = paddingValues.calculateTopPadding(),
-                        bottom = outerPadding.calculateBottomPadding()
-                    )
+            if (uiState.authorizer == Authorizer.None)
+                item {
+                    val tip = if (capabilityProvider.isSystemApp) stringResource(R.string.config_authorizer_none_system_app_tips)
+                    else stringResource(R.string.config_authorizer_none_tips)
+                    InfoTipCard(text = tip)
+                }
+
+            // --- Basic Settings Group ---
+            item {
+                SplicedColumnGroup(
+                    title = stringResource(R.string.basic)
                 ) {
-                    // --- Global Settings Group ---
                     item {
-                        SplicedColumnGroup(
-                            title = stringResource(R.string.personalization)
-                        ) {
-                            item {
-                                SettingsNavigationItemWidget(
-                                    icon = AppIcons.Theme,
-                                    title = stringResource(R.string.theme_settings),
-                                    description = stringResource(R.string.theme_settings_desc),
-                                    onClick = { navController.navigate(SettingsScreen.Theme.route) }
-                                )
+                        DisableAdbVerify(
+                            checked = !uiState.adbVerifyEnabled,
+                            isError = uiState.authorizer == Authorizer.Dhizuku,
+                            enabled = uiState.authorizer != Authorizer.Dhizuku &&
+                                    uiState.authorizer != Authorizer.None,
+                            onCheckedChange = { isDisabled ->
+                                viewModel.dispatch(PreferredViewAction.SetAdbVerifyEnabledState(!isDisabled))
                             }
-                            item {
-                                SettingsNavigationItemWidget(
-                                    icon = AppIcons.InstallMode,
-                                    title = stringResource(R.string.installer_settings),
-                                    description = stringResource(R.string.installer_settings_desc),
-                                    onClick = { navController.navigate(SettingsScreen.InstallerGlobal.route) }
-                                )
-                            }
-                            item {
-                                SettingsNavigationItemWidget(
-                                    icon = AppIcons.Delete,
-                                    title = stringResource(R.string.uninstaller_settings),
-                                    description = stringResource(R.string.uninstaller_settings_desc),
-                                    onClick = { navController.navigate(SettingsScreen.UninstallerGlobal.route) }
-                                )
-                            }
-                        }
+                        )
                     }
-
-                    if (viewModel.state.authorizer == ConfigEntity.Authorizer.None)
-                        item {
-                            val tip = if (OSUtils.isSystemApp) stringResource(R.string.config_authorizer_none_system_app_tips)
-                            else stringResource(R.string.config_authorizer_none_tips)
-                            InfoTipCard(text = tip)
-                        }
-
-                    // --- Basic Settings Group ---
                     item {
-                        SplicedColumnGroup(
-                            title = stringResource(R.string.basic)
-                        ) {
-                            item {
-                                DisableAdbVerify(
-                                    checked = !state.adbVerifyEnabled,
-                                    isError = state.authorizer == ConfigEntity.Authorizer.Dhizuku,
-                                    enabled = state.authorizer != ConfigEntity.Authorizer.Dhizuku &&
-                                            state.authorizer != ConfigEntity.Authorizer.None,
-                                    onCheckedChange = { isDisabled ->
-                                        viewModel.dispatch(PreferredViewAction.SetAdbVerifyEnabledState(!isDisabled))
-                                    }
-                                )
-                            }
-                            item {
-                                IgnoreBatteryOptimizationSetting(
-                                    checked = state.isIgnoringBatteryOptimizations,
-                                    enabled = !state.isIgnoringBatteryOptimizations,
-                                ) { viewModel.dispatch(PreferredViewAction.RequestIgnoreBatteryOptimization) }
-                            }
-                            item {
-                                AutoLockInstaller(
-                                    checked = state.autoLockInstaller,
-                                    enabled = state.authorizer != ConfigEntity.Authorizer.None
-                                ) { viewModel.dispatch(PreferredViewAction.ChangeAutoLockInstaller(!state.autoLockInstaller)) }
-                            }
-                            item {
-                                DefaultInstaller(
-                                    lock = true,
-                                    enabled = state.authorizer != ConfigEntity.Authorizer.None
-                                ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(true)) }
-                            }
-                            item {
-                                DefaultInstaller(
-                                    lock = false,
-                                    enabled = state.authorizer != ConfigEntity.Authorizer.None
-                                ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(false)) }
-                            }
-                            item { ClearCache() }
-                        }
+                        IgnoreBatteryOptimizationSetting(
+                            checked = uiState.isIgnoringBatteryOptimizations,
+                            enabled = !uiState.isIgnoringBatteryOptimizations,
+                        ) { viewModel.dispatch(PreferredViewAction.RequestIgnoreBatteryOptimization) }
                     }
-                    // --- Other Settings Group ---
                     item {
-                        SplicedColumnGroup(
-                            title = stringResource(R.string.other)
-                        ) {
-                            item {
-                                SettingsAboutItemWidget(
-                                    imageVector = AppIcons.Lab,
-                                    headlineContentText = stringResource(R.string.lab),
-                                    supportingContentText = stringResource(R.string.lab_desc),
-                                    onClick = { navController.navigate(SettingsScreen.Lab.route) }
-                                )
-                            }
-                            item {
-                                SettingsAboutItemWidget(
-                                    imageVector = AppIcons.Info,
-                                    headlineContentText = stringResource(R.string.about_detail),
-                                    supportingContentText = if (state.hasUpdate) stringResource(
-                                        R.string.update_available,
-                                        state.remoteVersion
-                                    ) else "$revLevel ${RsConfig.VERSION_NAME}",
-                                    supportingContentColor = if (state.hasUpdate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    onClick = { navController.navigate(SettingsScreen.About.route) }
-                                )
-                            }
-                        }
+                        AutoLockInstaller(
+                            checked = uiState.autoLockInstaller,
+                            enabled = uiState.authorizer != Authorizer.None
+                        ) { viewModel.dispatch(PreferredViewAction.ChangeAutoLockInstaller(!uiState.autoLockInstaller)) }
                     }
-                    item { Spacer(Modifier.navigationBarsPadding()) }
+                    item {
+                        DefaultInstaller(
+                            lock = true,
+                            enabled = uiState.authorizer != Authorizer.None
+                        ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(true)) }
+                    }
+                    item {
+                        DefaultInstaller(
+                            lock = false,
+                            enabled = uiState.authorizer != Authorizer.None
+                        ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(false)) }
+                    }
                 }
             }
+            // --- Other Settings Group ---
+            item {
+                SplicedColumnGroup(
+                    title = stringResource(R.string.other)
+                ) {
+                    item {
+                        SettingsAboutItemWidget(
+                            imageVector = AppIcons.Lab,
+                            headlineContentText = stringResource(R.string.lab),
+                            supportingContentText = stringResource(R.string.lab_desc),
+                            onClick = { navController.navigate(SettingsScreen.Lab.route) }
+                        )
+                    }
+                    item {
+                        SettingsAboutItemWidget(
+                            imageVector = AppIcons.Info,
+                            headlineContentText = stringResource(R.string.about_detail),
+                            supportingContentText = if (uiState.hasUpdate) stringResource(
+                                R.string.update_available,
+                                uiState.remoteVersion
+                            ) else "$revLevel ${AppConfig.VERSION_NAME}",
+                            supportingContentColor = if (uiState.hasUpdate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            onClick = { navController.navigate(SettingsScreen.About.route) }
+                        )
+                    }
+                }
+            }
+            item { Spacer(Modifier.navigationBarsPadding()) }
         }
     }
 
-    // Dialogs and bottom sheets stay outside the main Box
     errorDialogInfo?.let { dialogInfo ->
         ErrorDisplayDialog(
             exception = dialogInfo.exception,
@@ -313,15 +286,7 @@ fun NewPreferredPage(
                 errorDialogInfo = null
                 viewModel.dispatch(dialogInfo.retryAction)
             },
-            title = dialogInfo.title
-        )
-    }
-
-    updateErrorInfo?.let { info ->
-        ErrorDisplayDialog(
-            title = info.title,
-            exception = info.exception,
-            onDismissRequest = { updateErrorInfo = null }
+            title = stringResource(dialogInfo.titleResId)
         )
     }
 }

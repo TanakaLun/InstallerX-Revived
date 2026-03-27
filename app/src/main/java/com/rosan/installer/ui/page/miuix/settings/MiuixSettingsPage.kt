@@ -1,5 +1,10 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.settings
 
+import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -8,16 +13,22 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,47 +43,52 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.rosan.installer.R
+import com.rosan.installer.domain.settings.model.ThemeState
+import com.rosan.installer.domain.settings.provider.ThemeStateProvider
 import com.rosan.installer.ui.icons.AppIcons
-import com.rosan.installer.ui.page.main.settings.config.all.AllViewAction
-import com.rosan.installer.ui.page.main.settings.config.all.AllViewEvent
-import com.rosan.installer.ui.page.main.settings.config.all.AllViewModel
-import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewEvent
-import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewModel
+import com.rosan.installer.ui.page.main.settings.SettingsSharedViewModel
 import com.rosan.installer.ui.page.miuix.settings.config.all.MiuixAllPage
 import com.rosan.installer.ui.page.miuix.settings.config.apply.MiuixApplyPage
 import com.rosan.installer.ui.page.miuix.settings.config.edit.MiuixEditPage
 import com.rosan.installer.ui.page.miuix.settings.preferred.MiuixPreferredPage
-import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.home.MiuixHomePage
-import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.home.ossLicensePage.MiuixOpenSourceLicensePage
+import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.about.MiuixAboutPage
+import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.about.ossLicensePage.MiuixOpenSourceLicensePage
 import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.installer.MiuixInstallerGlobalSettingsPage
-import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.installer.MiuixUninstallerGlobalSettingsPage
 import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.lab.MiuixLabPage
 import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.theme.MiuixThemeSettingsPage
-import com.rosan.installer.ui.page.miuix.widgets.ErrorDisplaySheet
+import com.rosan.installer.ui.page.miuix.settings.preferred.subpage.uninstaller.MiuixUninstallerGlobalSettingsPage
+import com.rosan.installer.ui.page.miuix.widgets.FloatingBottomBar
+import com.rosan.installer.ui.page.miuix.widgets.FloatingBottomBarItem
 import com.rosan.installer.ui.theme.getMiuixAppBarColor
 import com.rosan.installer.ui.theme.installerHazeEffect
 import com.rosan.installer.ui.theme.rememberMiuixHazeStyle
+import com.rosan.installer.ui.util.UIConstants
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
-import org.koin.core.parameter.parametersOf
+import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
@@ -81,23 +97,32 @@ import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.NavigationRail
 import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SnackbarDuration
 import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
-import top.yukonga.miuix.kmp.basic.SnackbarResult
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-
-private object UIConstants {
-    val WIDE_SCREEN_THRESHOLD = 840.dp
-    val MEDIUM_WIDTH_THRESHOLD = 600.dp
-    const val PORTRAIT_ASPECT_RATIO_THRESHOLD = 1.2f
-}
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-fun MiuixSettingsPage(preferredViewModel: PreferredViewModel) {
+fun MiuixSettingsPage(
+    sharedViewModel: SettingsSharedViewModel = koinViewModel(viewModelStoreOwner = LocalActivity.current as ComponentActivity)
+) {
     val navController = rememberNavController()
-    val useBlur = preferredViewModel.state.useBlur
+    val themeStateProvider = koinInject<ThemeStateProvider>()
+    val uiState by themeStateProvider.themeStateFlow.collectAsStateWithLifecycle(initialValue = ThemeState())
+    val sharedState by sharedViewModel.state.collectAsStateWithLifecycle()
+    val useBlur = uiState.useBlur
+    val useFloatingBottomBar = uiState.useAppleFloatingBar
+    val useFloatingBottomBarBlur = useBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+
+    LaunchedEffect(currentBackStackEntry, sharedState.pendingNavigateToTheme) {
+        if (sharedState.pendingNavigateToTheme && currentBackStackEntry?.destination?.route == MiuixSettingsScreen.MiuixMain.route) {
+            navController.navigate(MiuixSettingsScreen.MiuixTheme.route)
+            sharedViewModel.markPendingNavigateToTheme(false)
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = MiuixSettingsScreen.MiuixMain.route,
@@ -128,11 +153,6 @@ fun MiuixSettingsPage(preferredViewModel: PreferredViewModel) {
         }
     ) {
         composable(route = MiuixSettingsScreen.MiuixMain.route) {
-            val allViewModel: AllViewModel = koinViewModel { parametersOf(navController) }
-            LaunchedEffect(Unit) {
-                allViewModel.dispatch(AllViewAction.Init)
-            }
-
             val navigationItems = listOf(
                 NavigationItem(
                     label = stringResource(R.string.config),
@@ -144,58 +164,24 @@ fun MiuixSettingsPage(preferredViewModel: PreferredViewModel) {
                 )
             )
 
-            val pagerState = rememberPagerState(pageCount = { navigationItems.size })
-            val snackBarHostState = remember { SnackbarHostState() }
-            val hazeState = if (useBlur) remember { HazeState() } else null
-            val hazeStyle = rememberMiuixHazeStyle()
+            val pagerState = rememberPagerState(
+                initialPage = sharedState.lastMainPageIndex,
+                pageCount = { navigationItems.size }
+            )
 
-            // LaunchedEffect to handle snackbar events from AllViewModel
-            LaunchedEffect(Unit) {
-                allViewModel.eventFlow.collectLatest { event ->
-                    when (event) {
-                        is AllViewEvent.DeletedConfig -> {
-                            val result = snackBarHostState.showSnackbar(
-                                message = allViewModel.context.getString(R.string.delete_success),
-                                actionLabel = allViewModel.context.getString(R.string.restore),
-                                withDismissAction = true
-                            )
-                            if (result == SnackbarResult.ActionPerformed) {
-                                allViewModel.dispatch(
-                                    AllViewAction.RestoreDataConfig(configEntity = event.configEntity)
-                                )
-                            }
-                        }
-                    }
+            LaunchedEffect(pagerState.currentPage) {
+                if (sharedState.lastMainPageIndex != pagerState.currentPage) {
+                    sharedViewModel.updateLastMainPageIndex(pagerState.currentPage)
                 }
             }
 
-            var errorDialogInfo by remember { mutableStateOf<PreferredViewEvent.ShowDefaultInstallerErrorDetail?>(null) }
-            val showErrorSheetState = remember { mutableStateOf(false) }
-
-            val defaultInstallerErrorDetailActionLabel = stringResource(R.string.details)
-            LaunchedEffect(Unit) {
-                preferredViewModel.uiEvents.collect { event ->
-                    //snackBarHostState.newestSnackbarData()?.dismiss()
-                    when (event) {
-                        is PreferredViewEvent.ShowDefaultInstallerResult -> {
-                            snackBarHostState.showSnackbar(event.message)
-                        }
-
-                        is PreferredViewEvent.ShowDefaultInstallerErrorDetail -> {
-                            val snackbarResult = snackBarHostState.showSnackbar(
-                                message = event.title,
-                                actionLabel = defaultInstallerErrorDetailActionLabel,
-                                duration = SnackbarDuration.Short
-                            )
-                            if (snackbarResult == SnackbarResult.ActionPerformed) {
-                                errorDialogInfo = event
-                                showErrorSheetState.value = true
-                            }
-                        }
-
-                        else -> {}
-                    }
-                }
+            val snackbarHostState = remember { SnackbarHostState() }
+            val hazeState = if (useBlur) remember { HazeState() } else null
+            val hazeStyle = rememberMiuixHazeStyle()
+            val surfaceColor = MiuixTheme.colorScheme.surface
+            val backdrop = rememberLayerBackdrop {
+                drawRect(surfaceColor)
+                drawContent()
             }
 
             // --- Layout Decision Logic ---
@@ -205,44 +191,30 @@ fun MiuixSettingsPage(preferredViewModel: PreferredViewModel) {
                     maxWidth > UIConstants.MEDIUM_WIDTH_THRESHOLD && (maxHeight.value / maxWidth.value < UIConstants.PORTRAIT_ASPECT_RATIO_THRESHOLD)
                 val isWideScreen = isDefinitelyWide || isWideByShape
 
-                if (isWideScreen) {
+                if (isWideScreen)
                     SettingsWideScreenLayout(
                         navController = navController,
                         pagerState = pagerState,
                         navigationItems = navigationItems,
-                        allViewModel = allViewModel,
-                        preferredViewModel = preferredViewModel,
-                        snackBarHostState = snackBarHostState,
+                        snackbarHostState = snackbarHostState,
+                        useFloatingBottomBar = useFloatingBottomBar,
+                        useFloatingBottomBarBlur = useFloatingBottomBarBlur,
                         hazeState = hazeState,
-                        hazeStyle = hazeStyle
+                        hazeStyle = hazeStyle,
+                        backdrop = backdrop
                     )
-                } else {
+                else
                     SettingsCompactLayout(
                         navController = navController,
                         pagerState = pagerState,
                         navigationItems = navigationItems,
-                        allViewModel = allViewModel,
-                        preferredViewModel = preferredViewModel,
-                        snackBarHostState = snackBarHostState,
+                        snackbarHostState = snackbarHostState,
+                        useFloatingBottomBar = useFloatingBottomBar,
+                        useFloatingBottomBarBlur = useFloatingBottomBarBlur,
                         hazeState = hazeState,
-                        hazeStyle = hazeStyle
+                        hazeStyle = hazeStyle,
+                        backdrop = backdrop,
                     )
-                }
-            }
-
-            errorDialogInfo?.let { dialogInfo ->
-                ErrorDisplaySheet(
-                    showState = showErrorSheetState,
-                    exception = dialogInfo.exception,
-                    onDismissRequest = { showErrorSheetState.value = false },
-                    onRetry = errorDialogInfo?.retryAction?.let { retryAction ->
-                        {
-                            showErrorSheetState.value = false
-                            preferredViewModel.dispatch(retryAction)
-                        }
-                    },
-                    title = dialogInfo.title
-                )
             }
         }
 
@@ -276,22 +248,84 @@ fun MiuixSettingsPage(preferredViewModel: PreferredViewModel) {
             )
         }
         composable(route = MiuixSettingsScreen.MiuixAbout.route) {
-            MiuixHomePage(navController = navController, viewModel = preferredViewModel)
+            MiuixAboutPage(navController = navController)
         }
         composable(route = MiuixSettingsScreen.MiuixOpenSourceLicense.route) {
-            MiuixOpenSourceLicensePage(navController = navController, viewModel = preferredViewModel)
+            MiuixOpenSourceLicensePage(navController = navController)
         }
         composable(route = MiuixSettingsScreen.MiuixTheme.route) {
-            MiuixThemeSettingsPage(navController = navController, viewModel = preferredViewModel)
+            MiuixThemeSettingsPage(navController = navController)
         }
         composable(route = MiuixSettingsScreen.MiuixInstallerGlobal.route) {
-            MiuixInstallerGlobalSettingsPage(navController = navController, viewModel = preferredViewModel)
+            MiuixInstallerGlobalSettingsPage(navController = navController)
         }
         composable(route = MiuixSettingsScreen.MiuixUninstallerGlobal.route) {
-            MiuixUninstallerGlobalSettingsPage(navController = navController, viewModel = preferredViewModel)
+            MiuixUninstallerGlobalSettingsPage(navController = navController)
         }
         composable(route = MiuixSettingsScreen.MiuixLab.route) {
-            MiuixLabPage(navController = navController, viewModel = preferredViewModel)
+            MiuixLabPage(navController = navController)
+        }
+    }
+}
+
+/**
+ * Reusable Floating Bottom Bar
+ */
+@Composable
+private fun SettingsFloatingBottomBar(
+    pagerState: PagerState,
+    navigationItems: List<NavigationItem>,
+    useFloatingBottomBarBlur: Boolean,
+    backdrop: LayerBackdrop
+) {
+    val coroutineScope = rememberCoroutineScope()
+    Box(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        FloatingBottomBar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                )
+                .padding(bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            selectedIndex = { pagerState.currentPage },
+            onSelected = { index ->
+                coroutineScope.launch {
+                    pagerState.animateScrollToPage(index)
+                }
+            },
+            backdrop = backdrop,
+            tabsCount = navigationItems.size,
+            isBlurEnabled = useFloatingBottomBarBlur
+        ) {
+            navigationItems.forEachIndexed { index, item ->
+                FloatingBottomBarItem(
+                    onClick = {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(index)
+                        }
+                    },
+                    modifier = Modifier.defaultMinSize(minWidth = 76.dp)
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        tint = MiuixTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = item.label,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        color = MiuixTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Visible
+                    )
+                }
+            }
         }
     }
 }
@@ -304,23 +338,132 @@ private fun SettingsCompactLayout(
     navController: NavController,
     pagerState: PagerState,
     navigationItems: List<NavigationItem>,
-    allViewModel: AllViewModel,
-    preferredViewModel: PreferredViewModel,
-    snackBarHostState: SnackbarHostState,
+    snackbarHostState: SnackbarHostState,
+    useFloatingBottomBar: Boolean,
+    useFloatingBottomBarBlur: Boolean,
     hazeState: HazeState?,
-    hazeStyle: HazeStyle
+    hazeStyle: HazeStyle,
+    backdrop: LayerBackdrop
 ) {
     val coroutineScope = rememberCoroutineScope()
 
+    // Removed explicit contentWindowInsets override.
+    // Let the Scaffold pass default insets (which won't consume status bar cutouts),
+    // allowing inner pages to handle their own statusBarsPadding().
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar(
-                modifier = Modifier.installerHazeEffect(hazeState, hazeStyle),
+            if (useFloatingBottomBar) {
+                SettingsFloatingBottomBar(
+                    pagerState = pagerState,
+                    navigationItems = navigationItems,
+                    useFloatingBottomBarBlur = useFloatingBottomBarBlur,
+                    backdrop = backdrop
+                )
+            } else {
+                NavigationBar(
+                    modifier = Modifier.installerHazeEffect(hazeState, hazeStyle),
+                    color = hazeState.getMiuixAppBarColor()
+                ) {
+                    navigationItems.forEachIndexed { index, item ->
+                        NavigationBarItem(
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
+                            icon = item.icon,
+                            label = item.label
+                        )
+                    }
+                }
+            }
+        },
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
+        floatingActionButton = {
+            AnimatedVisibility(
+                visible = pagerState.currentPage == 0,
+                enter = scaleIn(),
+                exit = scaleOut()
+            ) {
+                FloatingActionButton(
+                    modifier = Modifier.padding(end = 16.dp),
+                    containerColor = if (MiuixTheme.isDynamicColor) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.background,
+                    shadowElevation = 2.dp,
+                    onClick = { navController.navigate(MiuixSettingsScreen.Builder.MiuixEditConfig(null).route) }
+                ) {
+                    Icon(
+                        imageVector = AppIcons.Add,
+                        modifier = Modifier.size(40.dp),
+                        contentDescription = stringResource(id = R.string.add),
+                        tint = if (MiuixTheme.isDynamicColor) MiuixTheme.colorScheme.onPrimary else MiuixTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    ) { paddingValues ->
+        SettingsPagerContent(
+            hazeState = hazeState,
+            pagerState = pagerState,
+            navController = navController,
+            navigationItems = navigationItems,
+            snackbarHostState = snackbarHostState,
+            modifier = Modifier.fillMaxSize(),
+            outerPadding = paddingValues,
+            useFloatingBottomBar = useFloatingBottomBar,
+            backdrop = backdrop
+        )
+    }
+}
+
+/**
+ * Wide Screen Layout (Tablet/Landscape)
+ */
+@Composable
+private fun SettingsWideScreenLayout(
+    navController: NavController,
+    pagerState: PagerState,
+    navigationItems: List<NavigationItem>,
+    snackbarHostState: SnackbarHostState,
+    useFloatingBottomBar: Boolean,
+    useFloatingBottomBarBlur: Boolean,
+    hazeState: HazeState?,
+    hazeStyle: HazeStyle,
+    backdrop: LayerBackdrop
+) {
+    val coroutineScope = rememberCoroutineScope()
+
+    if (useFloatingBottomBar) {
+        SettingsWideContent(
+            navController = navController,
+            pagerState = pagerState,
+            navigationItems = navigationItems,
+            snackbarHostState = snackbarHostState,
+            useFloatingBottomBar = true,
+            useFloatingBottomBarBlur = useFloatingBottomBarBlur,
+            backdrop = backdrop,
+            hazeState = hazeState
+        )
+    } else {
+        // Calculate the insets consumed by the NavigationRail on the start side
+        val startInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
+            .only(WindowInsetsSides.Start)
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MiuixTheme.colorScheme.surface)
+        ) {
+            // Left Panel: Navigation Rail
+            NavigationRail(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .installerHazeEffect(hazeState, hazeStyle),
                 color = hazeState.getMiuixAppBarColor()
             ) {
                 navigationItems.forEachIndexed { index, item ->
-                    NavigationBarItem(
+                    NavigationRailItem(
                         selected = pagerState.currentPage == index,
                         onClick = {
                             coroutineScope.launch {
@@ -332,98 +475,26 @@ private fun SettingsCompactLayout(
                     )
                 }
             }
-        },
-        snackbarHost = { SnackbarHost(state = snackBarHostState) },
-        floatingActionButton = {
-            // FAB logic specifically tied to the first page (Config)
-            AnimatedVisibility(
-                visible = pagerState.currentPage == 0,
-                enter = scaleIn(),
-                exit = scaleOut()
+
+            // Right Panel: Content + FAB + Snackbar
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    // Only consume start insets so the side bar area isn't duplicated.
+                    // Top and bottom insets are left for the inner pages to handle.
+                    .consumeWindowInsets(startInsets)
             ) {
-                FloatingActionButton(
-                    modifier = Modifier.padding(end = 16.dp),
-                    containerColor = if (MiuixTheme.isDynamicColor) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.background,
-                    shadowElevation = 2.dp,
-                    onClick = { navController.navigate(MiuixSettingsScreen.Builder.MiuixEditConfig(null).route) }
-                ) {
-                    Icon(
-                        imageVector = AppIcons.Add,
-                        modifier = Modifier.size(40.dp),
-                        contentDescription = stringResource(id = R.string.add),
-                        tint = if (MiuixTheme.isDynamicColor) MiuixTheme.colorScheme.onPrimary else MiuixTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-    ) { paddingValues ->
-        InstallerPagerContent(
-            hazeState = hazeState,
-            pagerState = pagerState,
-            navController = navController,
-            allViewModel = allViewModel,
-            preferredViewModel = preferredViewModel,
-            navigationItems = navigationItems,
-            modifier = Modifier.fillMaxSize(),
-            outerPadding = paddingValues
-        )
-    }
-}
-
-/**
- * Wide Screen Layout (Tablet/Landscape)
- * Uses a Row to split the View into a Side Panel and Main Content.
- */
-@Composable
-private fun SettingsWideScreenLayout(
-    navController: NavController,
-    pagerState: PagerState,
-    navigationItems: List<NavigationItem>,
-    allViewModel: AllViewModel,
-    preferredViewModel: PreferredViewModel,
-    snackBarHostState: SnackbarHostState,
-    hazeState: HazeState?,
-    hazeStyle: HazeStyle
-) {
-    val coroutineScope = rememberCoroutineScope()
-
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MiuixTheme.colorScheme.surface)
-    ) {
-        // Left Panel: Navigation Rail
-        NavigationRail(
-            modifier = Modifier
-                .fillMaxHeight()
-                .installerHazeEffect(hazeState, hazeStyle),
-            color = hazeState.getMiuixAppBarColor()
-        ) {
-            navigationItems.forEachIndexed { index, item ->
-                NavigationRailItem(
-                    selected = pagerState.currentPage == index,
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(index)
-                        }
-                    },
-                    icon = item.icon,
-                    label = item.label
+                SettingsWideContent(
+                    navController = navController,
+                    pagerState = pagerState,
+                    navigationItems = navigationItems,
+                    snackbarHostState = snackbarHostState,
+                    useFloatingBottomBar = false,
+                    useFloatingBottomBarBlur = false,
+                    backdrop = null,
+                    hazeState = hazeState
                 )
             }
-        }
-
-        // Right Panel: Content + FAB + Snackbar
-        Box(modifier = Modifier.weight(1f)) {
-            SettingsWideContent(
-                navController = navController,
-                pagerState = pagerState,
-                navigationItems = navigationItems,
-                allViewModel = allViewModel,
-                preferredViewModel = preferredViewModel,
-                snackBarHostState = snackBarHostState,
-                hazeState = hazeState
-            )
         }
     }
 }
@@ -433,19 +504,25 @@ private fun SettingsWideContent(
     navController: NavController,
     pagerState: PagerState,
     navigationItems: List<NavigationItem>,
-    allViewModel: AllViewModel,
-    preferredViewModel: PreferredViewModel,
-    snackBarHostState: SnackbarHostState,
+    snackbarHostState: SnackbarHostState,
+    useFloatingBottomBar: Boolean,
+    useFloatingBottomBarBlur: Boolean,
+    backdrop: LayerBackdrop?,
     hazeState: HazeState?
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets.systemBars.union(
-            WindowInsets.displayCutout.exclude(
-                WindowInsets.displayCutout.only(WindowInsetsSides.Start)
-            )
-        ),
-        snackbarHost = { SnackbarHost(state = snackBarHostState) },
+        bottomBar = {
+            if (useFloatingBottomBar && backdrop != null) {
+                SettingsFloatingBottomBar(
+                    pagerState = pagerState,
+                    navigationItems = navigationItems,
+                    useFloatingBottomBarBlur = useFloatingBottomBarBlur,
+                    backdrop = backdrop
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
         floatingActionButton = {
             AnimatedVisibility(
                 visible = pagerState.currentPage == 0,
@@ -468,51 +545,55 @@ private fun SettingsWideContent(
             }
         }
     ) { paddingValues ->
-        InstallerPagerContent(
+        SettingsPagerContent(
             hazeState = hazeState,
             pagerState = pagerState,
             navController = navController,
-            allViewModel = allViewModel,
-            preferredViewModel = preferredViewModel,
             navigationItems = navigationItems,
+            snackbarHostState = snackbarHostState,
             modifier = Modifier.fillMaxSize(),
-            outerPadding = paddingValues
+            outerPadding = paddingValues,
+            useFloatingBottomBar = useFloatingBottomBar,
+            backdrop = backdrop
         )
     }
 }
 
 @Composable
-private fun InstallerPagerContent(
+private fun SettingsPagerContent(
     hazeState: HazeState?,
     pagerState: PagerState,
     navController: NavController,
-    allViewModel: AllViewModel,
-    preferredViewModel: PreferredViewModel,
     navigationItems: List<NavigationItem>,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
-    outerPadding: PaddingValues
+    outerPadding: PaddingValues,
+    useFloatingBottomBar: Boolean,
+    backdrop: LayerBackdrop?
 ) {
     HorizontalPager(
         state = pagerState,
         userScrollEnabled = true,
         overscrollEffect = null,
+        beyondViewportPageCount = 1,
         modifier = modifier
+            .then(if (backdrop != null && useFloatingBottomBar) Modifier.layerBackdrop(backdrop) else Modifier)
     ) { page ->
         when (page) {
             0 -> MiuixAllPage(
                 navController = navController,
-                viewModel = allViewModel,
                 hazeState = hazeState,
                 title = navigationItems[page].label,
-                outerPadding = outerPadding
+                outerPadding = outerPadding,
+                snackbarHostState = snackbarHostState
             )
 
             1 -> MiuixPreferredPage(
                 navController = navController,
-                viewModel = preferredViewModel,
                 hazeState = hazeState,
                 title = navigationItems[page].label,
-                outerPadding = outerPadding
+                outerPadding = outerPadding,
+                snackbarHostState = snackbarHostState
             )
         }
     }

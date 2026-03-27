@@ -1,38 +1,65 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 iamr0s, InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings
 
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.rosan.installer.domain.settings.model.ThemeState
+import com.rosan.installer.domain.settings.provider.ThemeStateProvider
 import com.rosan.installer.ui.page.main.settings.config.apply.ApplyPage
 import com.rosan.installer.ui.page.main.settings.config.apply.NewApplyPage
 import com.rosan.installer.ui.page.main.settings.config.edit.EditPage
 import com.rosan.installer.ui.page.main.settings.config.edit.NewEditPage
 import com.rosan.installer.ui.page.main.settings.main.MainPage
-import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewModel
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.home.HomePage
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.home.NewHomePage
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.home.OpenSourceLicensePage
+import com.rosan.installer.ui.page.main.settings.preferred.subpage.about.AboutPage
+import com.rosan.installer.ui.page.main.settings.preferred.subpage.about.NewAboutPage
+import com.rosan.installer.ui.page.main.settings.preferred.subpage.about.OpenSourceLicensePage
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.installer.LegacyInstallerGlobalSettingsPage
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.installer.LegacyUninstallerGlobalSettingsPage
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.installer.NewInstallerGlobalSettingsPage
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.installer.NewUninstallerGlobalSettingsPage
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.lab.LegacyLabPage
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.lab.NewLabPage
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.theme.LegacyThemeSettingsPage
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.theme.NewThemeSettingsPage
+import com.rosan.installer.ui.page.main.settings.preferred.subpage.uninstaller.LegacyUninstallerGlobalSettingsPage
+import com.rosan.installer.ui.page.main.settings.preferred.subpage.uninstaller.NewUninstallerGlobalSettingsPage
+import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 @Composable
-fun SettingsPage(preferredViewModel: PreferredViewModel) {
+fun SettingsPage(
+    sharedViewModel: SettingsSharedViewModel = koinViewModel(viewModelStoreOwner = LocalActivity.current as ComponentActivity)
+) {
     val navController = rememberNavController()
-    val useBlur = preferredViewModel.state.useBlur
+    val themeStateProvider = koinInject<ThemeStateProvider>()
+    val uiState by themeStateProvider.themeStateFlow.collectAsStateWithLifecycle(initialValue = ThemeState())
+    val sharedState by sharedViewModel.state.collectAsStateWithLifecycle()
+    val useBlur = uiState.useBlur
+    val isExpressive = uiState.isExpressive
+
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+
+    LaunchedEffect(currentBackStackEntry, sharedState.pendingNavigateToTheme) {
+        if (sharedState.pendingNavigateToTheme && currentBackStackEntry?.destination?.route == SettingsScreen.Main.route) {
+            navController.navigate(SettingsScreen.Theme.route)
+            sharedViewModel.markPendingNavigateToTheme(false)
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = SettingsScreen.Main.route,
@@ -54,7 +81,7 @@ fun SettingsPage(preferredViewModel: PreferredViewModel) {
             popExitTransition = { null },
             enterTransition = { null }
         ) {
-            MainPage(navController = navController, preferredViewModel)
+            MainPage(navController = navController)
         }
         composable(
             route = SettingsScreen.EditConfig.route,
@@ -78,7 +105,7 @@ fun SettingsPage(preferredViewModel: PreferredViewModel) {
             }
         ) {
             val id = it.arguments?.getLong("id")
-            if (preferredViewModel.state.showExpressiveUI)
+            if (isExpressive)
                 NewEditPage(
                     navController = navController,
                     id = if (id != -1L) id else null,
@@ -112,7 +139,7 @@ fun SettingsPage(preferredViewModel: PreferredViewModel) {
             }
         ) {
             val id = it.arguments?.getLong("id")!!
-            if (preferredViewModel.state.showExpressiveUI)
+            if (isExpressive)
                 NewApplyPage(navController = navController, id = id)
             else
                 ApplyPage(navController = navController, id = id)
@@ -132,10 +159,10 @@ fun SettingsPage(preferredViewModel: PreferredViewModel) {
                 scaleOut(targetScale = 0.9f) + fadeOut()
             }
         ) {
-            if (preferredViewModel.state.showExpressiveUI)
-                NewHomePage(navController = navController, viewModel = preferredViewModel)
+            if (isExpressive)
+                NewAboutPage(navController = navController)
             else
-                HomePage(navController = navController, viewModel = preferredViewModel)
+                AboutPage(navController = navController)
         }
         composable(
             route = SettingsScreen.OpenSourceLicense.route,
@@ -152,17 +179,17 @@ fun SettingsPage(preferredViewModel: PreferredViewModel) {
                 scaleOut(targetScale = 0.9f) + fadeOut()
             }
         ) {
-            OpenSourceLicensePage(navController, preferredViewModel.state.showExpressiveUI, preferredViewModel.state.useBlur)
+            OpenSourceLicensePage(navController, isExpressive, uiState.useBlur)
         }
         composable(
             route = SettingsScreen.Theme.route,
             enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
             popExitTransition = { scaleOut(targetScale = 0.9f) + fadeOut() }
         ) {
-            if (preferredViewModel.state.showExpressiveUI) {
-                NewThemeSettingsPage(navController = navController, viewModel = preferredViewModel)
+            if (isExpressive) {
+                NewThemeSettingsPage(navController = navController)
             } else {
-                LegacyThemeSettingsPage(navController = navController, viewModel = preferredViewModel)
+                LegacyThemeSettingsPage(navController = navController)
             }
         }
         composable(
@@ -170,10 +197,10 @@ fun SettingsPage(preferredViewModel: PreferredViewModel) {
             enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
             popExitTransition = { scaleOut(targetScale = 0.9f) + fadeOut() }
         ) {
-            if (preferredViewModel.state.showExpressiveUI) {
-                NewInstallerGlobalSettingsPage(navController = navController, viewModel = preferredViewModel)
+            if (isExpressive) {
+                NewInstallerGlobalSettingsPage(navController = navController)
             } else {
-                LegacyInstallerGlobalSettingsPage(navController = navController, viewModel = preferredViewModel)
+                LegacyInstallerGlobalSettingsPage(navController = navController)
             }
         }
         composable(
@@ -181,10 +208,10 @@ fun SettingsPage(preferredViewModel: PreferredViewModel) {
             enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
             popExitTransition = { scaleOut(targetScale = 0.9f) + fadeOut() }
         ) {
-            if (preferredViewModel.state.showExpressiveUI) {
-                NewUninstallerGlobalSettingsPage(navController = navController, viewModel = preferredViewModel)
+            if (isExpressive) {
+                NewUninstallerGlobalSettingsPage(navController = navController)
             } else {
-                LegacyUninstallerGlobalSettingsPage(navController = navController, viewModel = preferredViewModel)
+                LegacyUninstallerGlobalSettingsPage(navController = navController)
             }
         }
         composable(
@@ -192,10 +219,10 @@ fun SettingsPage(preferredViewModel: PreferredViewModel) {
             enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
             popExitTransition = { scaleOut(targetScale = 0.9f) + fadeOut() }
         ) {
-            if (preferredViewModel.state.showExpressiveUI) {
-                NewLabPage(navController = navController, viewModel = preferredViewModel)
+            if (isExpressive) {
+                NewLabPage(navController = navController)
             } else {
-                LegacyLabPage(navController = navController, viewModel = preferredViewModel)
+                LegacyLabPage(navController = navController)
             }
         }
     }

@@ -1,30 +1,50 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.settings.preferred
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rosan.installer.R
-import com.rosan.installer.build.RsConfig
-import com.rosan.installer.build.model.entity.Level
-import com.rosan.installer.data.settings.model.room.entity.ConfigEntity
+import com.rosan.installer.core.env.AppConfig
+import com.rosan.installer.domain.device.model.Level
+import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
+import com.rosan.installer.domain.settings.model.Authorizer
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.settings.SettingsScreen
 import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewAction
+import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewEvent
 import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewModel
-import com.rosan.installer.ui.page.main.widget.setting.OnLifecycleEvent
+import com.rosan.installer.ui.page.main.widget.util.OnLifecycleEvent
 import com.rosan.installer.ui.page.miuix.settings.MiuixSettingsScreen
+import com.rosan.installer.ui.page.miuix.widgets.ErrorDisplaySheet
 import com.rosan.installer.ui.page.miuix.widgets.MiuixAutoLockInstaller
-import com.rosan.installer.ui.page.miuix.widgets.MiuixClearCache
 import com.rosan.installer.ui.page.miuix.widgets.MiuixDefaultInstaller
 import com.rosan.installer.ui.page.miuix.widgets.MiuixDisableAdbVerify
 import com.rosan.installer.ui.page.miuix.widgets.MiuixIgnoreBatteryOptimizationSetting
@@ -34,21 +54,25 @@ import com.rosan.installer.ui.page.miuix.widgets.MiuixSettingsTipCard
 import com.rosan.installer.ui.theme.getMiuixAppBarColor
 import com.rosan.installer.ui.theme.installerHazeEffect
 import com.rosan.installer.ui.theme.rememberMiuixHazeStyle
-import com.rosan.installer.util.OSUtils
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.BasicComponentColors
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SnackbarDuration
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.SnackbarResult
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
+@SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun MiuixPreferredPage(
@@ -56,21 +80,55 @@ fun MiuixPreferredPage(
     viewModel: PreferredViewModel = koinViewModel(),
     hazeState: HazeState?,
     title: String,
-    outerPadding: PaddingValues
+    outerPadding: PaddingValues,
+    snackbarHostState: SnackbarHostState
 ) {
-    val state = viewModel.state
+    val context = LocalContext.current
+    val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val capabilityProvider = koinInject<DeviceCapabilityProvider>()
 
     OnLifecycleEvent(Lifecycle.Event.ON_RESUME) {
         viewModel.dispatch(PreferredViewAction.RefreshIgnoreBatteryOptimizationStatus)
     }
 
-    val revLevel = when (RsConfig.LEVEL) {
+    val revLevel = when (AppConfig.LEVEL) {
         Level.STABLE -> stringResource(id = R.string.stable)
         Level.PREVIEW -> stringResource(id = R.string.preview)
         Level.UNSTABLE -> stringResource(id = R.string.unstable)
     }
     val scrollBehavior = MiuixScrollBehavior()
     val hazeStyle = rememberMiuixHazeStyle()
+
+    var errorDialogInfo by remember { mutableStateOf<PreferredViewEvent.ShowDefaultInstallerErrorDetail?>(null) }
+    val showErrorSheetState = remember { mutableStateOf(false) }
+
+    val defaultInstallerErrorDetailActionLabel = stringResource(R.string.details)
+    LaunchedEffect(Unit) {
+        viewModel.uiEvents.collect { event ->
+            //snackBarHostState.newestSnackbarData()?.dismiss()
+            when (event) {
+                is PreferredViewEvent.ShowDefaultInstallerResult -> {
+                    snackbarHostState.showSnackbar(context.getString(event.messageResId))
+                }
+
+                is PreferredViewEvent.ShowDefaultInstallerErrorDetail -> {
+                    val snackbarResult = snackbarHostState.showSnackbar(
+                        message = context.getString(event.titleResId),
+                        actionLabel = defaultInstallerErrorDetailActionLabel,
+                        duration = SnackbarDuration.Short
+                    )
+                    if (snackbarResult == SnackbarResult.ActionPerformed) {
+                        errorDialogInfo = event
+                        showErrorSheetState.value = true
+                    }
+                }
+            }
+        }
+    }
+
+    // Capture layout direction and horizontal safe insets for display cutouts in landscape
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -91,7 +149,10 @@ fun MiuixPreferredPage(
                 .overScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = PaddingValues(
+                // Safely add horizontal paddings to avoid notches in landscape
+                start = horizontalSafeInsets.calculateStartPadding(layoutDirection),
                 top = innerPadding.calculateTopPadding(),
+                end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
                 bottom = outerPadding.calculateBottomPadding()
             ),
             overscrollEffect = null
@@ -130,9 +191,9 @@ fun MiuixPreferredPage(
                     )
                 }
             }
-            if (viewModel.state.authorizer == ConfigEntity.Authorizer.None)
+            if (uiState.authorizer == Authorizer.None)
                 item {
-                    val tip = if (OSUtils.isSystemApp) stringResource(R.string.config_authorizer_none_system_app_tips)
+                    val tip = if (capabilityProvider.isSystemApp) stringResource(R.string.config_authorizer_none_system_app_tips)
                     else stringResource(R.string.config_authorizer_none_tips)
                     MiuixSettingsTipCard(text = tip)
                 }
@@ -144,10 +205,10 @@ fun MiuixPreferredPage(
                         .padding(bottom = 12.dp)
                 ) {
                     MiuixDisableAdbVerify(
-                        checked = !state.adbVerifyEnabled,
-                        isError = state.authorizer == ConfigEntity.Authorizer.Dhizuku,
-                        enabled = state.authorizer != ConfigEntity.Authorizer.Dhizuku &&
-                                state.authorizer != ConfigEntity.Authorizer.None,
+                        checked = !uiState.adbVerifyEnabled,
+                        isError = uiState.authorizer == Authorizer.Dhizuku,
+                        enabled = uiState.authorizer != Authorizer.Dhizuku &&
+                                uiState.authorizer != Authorizer.None,
                         onCheckedChange = { isDisabled ->
                             viewModel.dispatch(
                                 PreferredViewAction.SetAdbVerifyEnabledState(!isDisabled)
@@ -155,22 +216,21 @@ fun MiuixPreferredPage(
                         }
                     )
                     MiuixIgnoreBatteryOptimizationSetting(
-                        checked = state.isIgnoringBatteryOptimizations,
-                        enabled = !state.isIgnoringBatteryOptimizations,
+                        checked = uiState.isIgnoringBatteryOptimizations,
+                        enabled = !uiState.isIgnoringBatteryOptimizations,
                     ) { viewModel.dispatch(PreferredViewAction.RequestIgnoreBatteryOptimization) }
                     MiuixAutoLockInstaller(
-                        checked = state.autoLockInstaller,
-                        enabled = state.authorizer != ConfigEntity.Authorizer.None,
-                    ) { viewModel.dispatch(PreferredViewAction.ChangeAutoLockInstaller(!state.autoLockInstaller)) }
+                        checked = uiState.autoLockInstaller,
+                        enabled = uiState.authorizer != Authorizer.None,
+                    ) { viewModel.dispatch(PreferredViewAction.ChangeAutoLockInstaller(!uiState.autoLockInstaller)) }
                     MiuixDefaultInstaller(
                         lock = true,
-                        enabled = state.authorizer != ConfigEntity.Authorizer.None,
+                        enabled = uiState.authorizer != Authorizer.None,
                     ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(true)) }
                     MiuixDefaultInstaller(
                         lock = false,
-                        enabled = state.authorizer != ConfigEntity.Authorizer.None,
+                        enabled = uiState.authorizer != Authorizer.None,
                     ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(false)) }
-                    MiuixClearCache()
                 }
             }
             item { SmallTitle(stringResource(R.string.other)) }
@@ -186,17 +246,31 @@ fun MiuixPreferredPage(
                     ) { navController.navigate(SettingsScreen.Lab.route) }
                     MiuixSettingsAboutItemWidget(
                         title = stringResource(R.string.about_detail),
-                        summary = if (state.hasUpdate) stringResource(
+                        summary = if (uiState.hasUpdate) stringResource(
                             R.string.update_available,
-                            state.remoteVersion
-                        ) else "$revLevel ${RsConfig.VERSION_NAME}",
+                            uiState.remoteVersion
+                        ) else "$revLevel ${AppConfig.VERSION_NAME}",
                         summaryColor = BasicComponentColors(
-                            color = if (state.hasUpdate) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            color = if (uiState.hasUpdate) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             disabledColor = MiuixTheme.colorScheme.disabledOnSecondaryVariant
                         )
                     ) { navController.navigate(MiuixSettingsScreen.MiuixAbout.route) }
                 }
             }
+        }
+        errorDialogInfo?.let { dialogInfo ->
+            ErrorDisplaySheet(
+                showState = showErrorSheetState,
+                exception = dialogInfo.exception,
+                onDismissRequest = { showErrorSheetState.value = false },
+                onRetry = errorDialogInfo?.retryAction?.let { retryAction ->
+                    {
+                        showErrorSheetState.value = false
+                        viewModel.dispatch(retryAction)
+                    }
+                },
+                title = stringResource(dialogInfo.titleResId)
+            )
         }
     }
 }

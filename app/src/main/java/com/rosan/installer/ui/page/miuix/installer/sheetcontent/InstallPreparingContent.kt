@@ -16,26 +16,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
+import com.rosan.installer.ui.page.main.installer.InstallerStage
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
-import com.rosan.installer.ui.page.main.installer.InstallerViewState
 import com.rosan.installer.ui.util.isGestureNavigation
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.patched.ProgressButton
 import top.yukonga.miuix.kmp.basic.patched.ProgressButtonDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
 
 @Composable
 fun InstallPreparingContent(
     viewModel: InstallerViewModel,
     onCancel: () -> Unit
 ) {
-    val currentState = viewModel.state
-    val progress = if (currentState is InstallerViewState.Preparing) {
-        currentState.progress
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val stage = uiState.stage
+    // Extract progress via Smart Cast from the stage
+    val progress = if (stage is InstallerStage.Preparing) {
+        stage.progress
     } else {
-        0f
+        -1f // Default to indeterminate if state is wrong
     }
 
     val animatedProgress by animateFloatAsState(
@@ -67,7 +71,7 @@ fun InstallPreparingContent(
         }
 
         val contentColor = if (animatedProgress < 0.45f)
-            MiuixTheme.colorScheme.onSecondaryVariant
+            if (isDynamicColor) MiuixTheme.colorScheme.onSecondaryContainer else MiuixTheme.colorScheme.onSecondaryVariant
         else
             MiuixTheme.colorScheme.onPrimary
 
@@ -80,7 +84,7 @@ fun InstallPreparingContent(
                 .navigationBarsPadding()
                 .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = if (isGestureNavigation()) 24.dp else 0.dp),
             colors = ProgressButtonDefaults.progressButtonColors(
-                trackColor = MiuixTheme.colorScheme.secondaryVariant,
+                trackColor = if (isDynamicColor) MiuixTheme.colorScheme.secondaryContainer else MiuixTheme.colorScheme.secondaryVariant,
                 progressColor = MiuixTheme.colorScheme.primary,
                 contentColor = contentColor
             )
