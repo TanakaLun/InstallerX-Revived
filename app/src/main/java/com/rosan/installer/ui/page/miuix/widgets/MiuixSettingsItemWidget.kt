@@ -44,19 +44,19 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
 import com.rosan.installer.data.engine.executor.PackageManagerUtil
+import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
 import com.rosan.installer.domain.settings.model.Authorizer
 import com.rosan.installer.domain.settings.model.InstallMode
 import com.rosan.installer.domain.settings.model.NamedPackage
 import com.rosan.installer.domain.settings.model.SharedUid
-import com.rosan.installer.ui.common.LocalSessionInstallSupported
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.uninstaller.UninstallerSettingsAction
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.uninstaller.UninstallerSettingsViewModel
 import com.rosan.installer.ui.theme.material.PaletteStyle
 import com.rosan.installer.ui.theme.material.ThemeColorSpec
 import com.rosan.installer.ui.theme.material.ThemeMode
-import com.rosan.installer.ui.util.rememberCacheInfo
 import com.rosan.installer.util.hasFlag
+import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentColors
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
@@ -89,9 +89,10 @@ fun MiuixDataAuthorizerWidget(
     trailingContent: @Composable () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val capabilityProvider = koinInject<DeviceCapabilityProvider>()
     val shizukuIcon = ImageVector.vectorResource(R.drawable.ic_shizuku)
 
-    val isSessionInstallSupported = LocalSessionInstallSupported.current
+    val isSessionInstallSupported = capabilityProvider.isSessionInstallSupported
     val authorizerOptions = remember {
         buildMap {
             if (isSessionInstallSupported)
@@ -324,17 +325,6 @@ fun MiuixDefaultInstaller(
         ),
         enabled = enabled,
         onClick = onClick
-    )
-}
-
-@Composable
-fun MiuixClearCache() {
-    val cacheState = rememberCacheInfo()
-    BasicComponent(
-        enabled = !cacheState.inProgress,
-        title = stringResource(id = R.string.clear_cache),
-        summary = cacheState.description,
-        onClick = { cacheState.onClear() }
     )
 }
 

@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.preferred.subpage.theme
 
 import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -13,13 +16,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
@@ -40,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,7 +76,7 @@ import org.koin.androidx.compose.koinViewModel
 fun LegacyThemeSettingsPage(
     navController: NavController,
     viewModel: ThemeSettingsViewModel = koinViewModel(),
-    sharedViewModel: SettingsSharedViewModel = koinViewModel()
+    sharedViewModel: SettingsSharedViewModel = koinViewModel(viewModelStoreOwner = LocalActivity.current as ComponentActivity)
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -105,6 +116,9 @@ fun LegacyThemeSettingsPage(
         }
     )
 
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets.none,
@@ -116,176 +130,167 @@ fun LegacyThemeSettingsPage(
             )
         }
     ) { paddingValues ->
-        Crossfade(
-            targetState = uiState.isLoading,
-            label = "ThemePageContent",
-            animationSpec = tween(durationMillis = 150)
-        ) { isLoading ->
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                top = paddingValues.calculateTopPadding(),
+                end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
+                bottom = paddingValues.calculateBottomPadding()
+            )
+        ) {
+            item {
+                LabelWidget(label = stringResource(R.string.theme_settings_ui_style))
+            }
+            item {
+                Column(modifier = Modifier.padding(start = 36.dp, end = 12.dp)) {
+                    SelectableSettingItem(
+                        title = stringResource(R.string.theme_settings_google_ui),
+                        description = stringResource(R.string.theme_settings_google_ui_desc),
+                        selected = !uiState.showMiuixUI,
+                        onClick = {
+                            if (uiState.showMiuixUI) { // Only dispatch if changing state
+                                viewModel.dispatch(ThemeSettingsAction.ChangeUseMiuix(false))
+                            }
+                        }
+                    )
+
+                    SelectableSettingItem(
+                        title = stringResource(R.string.theme_settings_miuix_ui),
+                        description = stringResource(R.string.theme_settings_miuix_ui_desc),
+                        selected = uiState.showMiuixUI,
+                        onClick = {
+                            if (!uiState.showMiuixUI) { // Only dispatch if changing state
+                                sharedViewModel.markPendingNavigateToTheme(true)
+                                viewModel.dispatch(ThemeSettingsAction.ChangeUseMiuix(true))
+                            }
+                        }
+                    )
+                }
+            }
+            item { LabelWidget(stringResource(R.string.theme_settings_google_ui)) }
+            item {
+                SwitchWidget(
+                    icon = AppIcons.Theme,
+                    title = stringResource(R.string.theme_settings_use_expressive_ui),
+                    description = stringResource(R.string.theme_settings_use_expressive_ui_desc),
+                    checked = uiState.showExpressiveUI,
+                    isM3E = false,
+                    onCheckedChange = {
+                        viewModel.dispatch(ThemeSettingsAction.ChangeShowExpressiveUI(it))
+                    }
                 )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
+            }
+            item {
+                BaseWidget(
+                    icon = Icons.Default.DarkMode,
+                    title = stringResource(R.string.theme_settings_theme_mode),
+                    description = when (uiState.themeMode) {
+                        ThemeMode.LIGHT -> stringResource(R.string.theme_settings_theme_mode_light)
+                        ThemeMode.DARK -> stringResource(R.string.theme_settings_theme_mode_dark)
+                        ThemeMode.SYSTEM -> stringResource(R.string.theme_settings_theme_mode_system)
+                    },
+                    onClick = { showThemeModeDialog = true }
+                ) {}
+            }
+            item {
+                BaseWidget(
+                    icon = Icons.Default.Style,
+                    title = stringResource(R.string.theme_settings_palette_style),
+                    description = uiState.paletteStyle.displayName,
+                    onClick = { showPaletteDialog = true }
+                ) {}
+            }
+            item { ColorSpecSelector(viewModel) }
+            item {
+                SwitchWidget(
+                    icon = Icons.TwoTone.InvertColors,
+                    title = stringResource(R.string.theme_settings_dynamic_color),
+                    description = stringResource(R.string.theme_settings_dynamic_color_desc),
+                    isM3E = false,
+                    checked = uiState.useDynamicColor,
+                    onCheckedChange = {
+                        viewModel.dispatch(ThemeSettingsAction.SetUseDynamicColor(it))
+                    }
+                )
+            }
+            item {
+                SwitchWidget(
+                    icon = Icons.TwoTone.Colorize,
+                    title = stringResource(R.string.theme_settings_dynamic_color_follow_icon),
+                    description = stringResource(R.string.theme_settings_dynamic_color_follow_icon_desc),
+                    isM3E = false,
+                    checked = uiState.useDynColorFollowPkgIcon,
+                    onCheckedChange = {
+                        viewModel.dispatch(ThemeSettingsAction.SetDynColorFollowPkgIcon(it))
+                    }
+                )
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && uiState.showLiveActivity)
+                item {
+                    SwitchWidget(
+                        icon = Icons.TwoTone.Colorize,
+                        title = stringResource(R.string.theme_settings_live_activity_dynamic_color_follow_icon),
+                        description = stringResource(R.string.theme_settings_live_activity_dynamic_color_follow_icon_desc),
+                        isM3E = false,
+                        checked = uiState.useDynColorFollowPkgIconForLiveActivity,
+                        onCheckedChange = {
+                            viewModel.dispatch(ThemeSettingsAction.SetDynColorFollowPkgIconForLiveActivity(it))
+                        }
+                    )
+                }
+
+            item {
+                AnimatedVisibility(
+                    visible = !uiState.useDynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S,
+                    enter = fadeIn(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
+                            expandVertically(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
+                    exit = fadeOut(animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)) +
+                            shrinkVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing))
                 ) {
-                    item {
-                        LabelWidget(label = stringResource(R.string.theme_settings_ui_style))
-                    }
-                    item {
-                        Column(modifier = Modifier.padding(start = 36.dp, end = 12.dp)) {
-                            SelectableSettingItem(
-                                title = stringResource(R.string.theme_settings_google_ui),
-                                description = stringResource(R.string.theme_settings_google_ui_desc),
-                                selected = !uiState.showMiuixUI,
-                                onClick = {
-                                    if (uiState.showMiuixUI) { // Only dispatch if changing state
-                                        viewModel.dispatch(ThemeSettingsAction.ChangeUseMiuix(false))
-                                    }
-                                }
-                            )
-
-                            SelectableSettingItem(
-                                title = stringResource(R.string.theme_settings_miuix_ui),
-                                description = stringResource(R.string.theme_settings_miuix_ui_desc),
-                                selected = uiState.showMiuixUI,
-                                onClick = {
-                                    if (!uiState.showMiuixUI) { // Only dispatch if changing state
-                                        sharedViewModel.markPendingNavigateToTheme(true)
-                                        viewModel.dispatch(ThemeSettingsAction.ChangeUseMiuix(true))
-                                    }
-                                }
-                            )
-                        }
-                    }
-                    item { LabelWidget(stringResource(R.string.theme_settings_google_ui)) }
-                    item {
-                        SwitchWidget(
-                            icon = AppIcons.Theme,
-                            title = stringResource(R.string.theme_settings_use_expressive_ui),
-                            description = stringResource(R.string.theme_settings_use_expressive_ui_desc),
-                            checked = uiState.showExpressiveUI,
-                            isM3E = false,
-                            onCheckedChange = {
-                                viewModel.dispatch(ThemeSettingsAction.ChangeShowExpressiveUI(it))
-                            }
-                        )
-                    }
-                    item {
-                        BaseWidget(
-                            icon = Icons.Default.DarkMode,
-                            title = stringResource(R.string.theme_settings_theme_mode),
-                            description = when (uiState.themeMode) {
-                                ThemeMode.LIGHT -> stringResource(R.string.theme_settings_theme_mode_light)
-                                ThemeMode.DARK -> stringResource(R.string.theme_settings_theme_mode_dark)
-                                ThemeMode.SYSTEM -> stringResource(R.string.theme_settings_theme_mode_system)
-                            },
-                            onClick = { showThemeModeDialog = true }
-                        ) {}
-                    }
-                    item {
-                        BaseWidget(
-                            icon = Icons.Default.Style,
-                            title = stringResource(R.string.theme_settings_palette_style),
-                            description = uiState.paletteStyle.displayName,
-                            onClick = { showPaletteDialog = true }
-                        ) {}
-                    }
-                    item { ColorSpecSelector(viewModel) }
-                    item {
-                        SwitchWidget(
-                            icon = Icons.TwoTone.InvertColors,
-                            title = stringResource(R.string.theme_settings_dynamic_color),
-                            description = stringResource(R.string.theme_settings_dynamic_color_desc),
-                            isM3E = false,
-                            checked = uiState.useDynamicColor,
-                            onCheckedChange = {
-                                viewModel.dispatch(ThemeSettingsAction.SetUseDynamicColor(it))
-                            }
-                        )
-                    }
-                    item {
-                        SwitchWidget(
-                            icon = Icons.TwoTone.Colorize,
-                            title = stringResource(R.string.theme_settings_dynamic_color_follow_icon),
-                            description = stringResource(R.string.theme_settings_dynamic_color_follow_icon_desc),
-                            isM3E = false,
-                            checked = uiState.useDynColorFollowPkgIcon,
-                            onCheckedChange = {
-                                viewModel.dispatch(ThemeSettingsAction.SetDynColorFollowPkgIcon(it))
-                            }
-                        )
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && uiState.showLiveActivity)
-                        item {
-                            SwitchWidget(
-                                icon = Icons.TwoTone.Colorize,
-                                title = stringResource(R.string.theme_settings_live_activity_dynamic_color_follow_icon),
-                                description = stringResource(R.string.theme_settings_live_activity_dynamic_color_follow_icon_desc),
-                                isM3E = false,
-                                checked = uiState.useDynColorFollowPkgIconForLiveActivity,
-                                onCheckedChange = {
-                                    viewModel.dispatch(ThemeSettingsAction.SetDynColorFollowPkgIconForLiveActivity(it))
-                                }
-                            )
-                        }
-
-                    item {
-                        AnimatedVisibility(
-                            visible = !uiState.useDynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S,
-                            enter = fadeIn(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                                    expandVertically(animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
-                            exit = fadeOut(animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing)) +
-                                    shrinkVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing))
+                    Column {
+                        LabelWidget(stringResource(R.string.theme_settings_theme_color))
+                        BoxWithConstraints(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 16.dp)
                         ) {
-                            Column {
-                                LabelWidget(stringResource(R.string.theme_settings_theme_color))
-                                BoxWithConstraints(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 16.dp)
-                                ) {
-                                    val itemMinWidth = 88.dp
-                                    val columns = (this.maxWidth / itemMinWidth).toInt().coerceAtLeast(1)
-                                    val chunkedColors = uiState.availableColors.chunked(columns)
+                            val itemMinWidth = 88.dp
+                            val columns = (this.maxWidth / itemMinWidth).toInt().coerceAtLeast(1)
+                            val chunkedColors = uiState.availableColors.chunked(columns)
 
-                                    Column(
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                chunkedColors.forEach { rowItems ->
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.Center
                                     ) {
-                                        chunkedColors.forEach { rowItems ->
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.Center
+                                        rowItems.forEach { rawColor ->
+                                            Box(
+                                                modifier = Modifier.weight(1f),
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                rowItems.forEach { rawColor ->
-                                                    Box(
-                                                        modifier = Modifier.weight(1f),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        ColorSwatchPreview(
-                                                            rawColor,
-                                                            currentStyle = uiState.paletteStyle,
-                                                            textStyle = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
-                                                            textColor = MaterialTheme.colorScheme.onSurface,
-                                                            isSelected = uiState.seedColor == rawColor.color &&
-                                                                    !(uiState.useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S),
-                                                        ) {
-                                                            viewModel.dispatch(ThemeSettingsAction.SetSeedColor(rawColor.color))
-                                                        }
-                                                    }
+                                                ColorSwatchPreview(
+                                                    rawColor,
+                                                    currentStyle = uiState.paletteStyle,
+                                                    colorSpec = uiState.colorSpec,
+                                                    textStyle = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp),
+                                                    textColor = MaterialTheme.colorScheme.onSurface,
+                                                    isSelected = uiState.seedColor == rawColor.color &&
+                                                            !(uiState.useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S),
+                                                ) {
+                                                    viewModel.dispatch(ThemeSettingsAction.SetSeedColor(rawColor.color))
                                                 }
+                                            }
+                                        }
 
-                                                val remaining = columns - rowItems.size
-                                                if (remaining > 0) {
-                                                    repeat(remaining) {
-                                                        Spacer(Modifier.weight(1f))
-                                                    }
-                                                }
+                                        val remaining = columns - rowItems.size
+                                        if (remaining > 0) {
+                                            repeat(remaining) {
+                                                Spacer(Modifier.weight(1f))
                                             }
                                         }
                                     }
@@ -293,41 +298,41 @@ fun LegacyThemeSettingsPage(
                             }
                         }
                     }
-                    item { LabelWidget(stringResource(R.string.theme_settings_package_icons)) }
-                    item {
-                        SwitchWidget(
-                            icon = AppIcons.IconPack,
-                            title = stringResource(R.string.theme_settings_prefer_system_icon),
-                            description = stringResource(R.string.theme_settings_prefer_system_icon_desc),
-                            checked = uiState.preferSystemIcon,
-                            isM3E = false,
-                            onCheckedChange = {
-                                viewModel.dispatch(
-                                    ThemeSettingsAction.ChangePreferSystemIcon(it)
-                                )
-                            }
-                        )
-                    }
-                    item { LabelWidget(stringResource(R.string.theme_settings_launcher_icons)) }
-                    item {
-                        SwitchWidget(
-                            icon = AppIcons.BugReport,
-                            title = stringResource(R.string.theme_settings_hide_launcher_icon),
-                            description = stringResource(R.string.theme_settings_hide_launcher_icon_desc),
-                            checked = !uiState.showLauncherIcon,
-                            isM3E = false,
-                            onCheckedChange = { newCheckedState ->
-                                if (newCheckedState) {
-                                    showHideLauncherIconDialog = true
-                                } else {
-                                    viewModel.dispatch(ThemeSettingsAction.ChangeShowLauncherIcon(true))
-                                }
-                            }
-                        )
-                    }
-                    item { Spacer(Modifier.navigationBarsPadding()) }
                 }
             }
+            item { LabelWidget(stringResource(R.string.theme_settings_package_icons)) }
+            item {
+                SwitchWidget(
+                    icon = AppIcons.IconPack,
+                    title = stringResource(R.string.theme_settings_prefer_system_icon),
+                    description = stringResource(R.string.theme_settings_prefer_system_icon_desc),
+                    checked = uiState.preferSystemIcon,
+                    isM3E = false,
+                    onCheckedChange = {
+                        viewModel.dispatch(
+                            ThemeSettingsAction.ChangePreferSystemIcon(it)
+                        )
+                    }
+                )
+            }
+            item { LabelWidget(stringResource(R.string.theme_settings_launcher_icons)) }
+            item {
+                SwitchWidget(
+                    icon = AppIcons.BugReport,
+                    title = stringResource(R.string.theme_settings_hide_launcher_icon),
+                    description = stringResource(R.string.theme_settings_hide_launcher_icon_desc),
+                    checked = !uiState.showLauncherIcon,
+                    isM3E = false,
+                    onCheckedChange = { newCheckedState ->
+                        if (newCheckedState) {
+                            showHideLauncherIconDialog = true
+                        } else {
+                            viewModel.dispatch(ThemeSettingsAction.ChangeShowLauncherIcon(true))
+                        }
+                    }
+                )
+            }
+            item { Spacer(Modifier.navigationBarsPadding()) }
         }
     }
 }

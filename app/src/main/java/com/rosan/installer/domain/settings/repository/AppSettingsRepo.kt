@@ -32,6 +32,7 @@ enum class BooleanSetting {
     ThemeUseDynamicColor,
     UiUseMiuix,
     UiUseMiuixMonet,
+    UiUseAppleFloatingBar,
     UiDynColorFollowPkgIcon,
     LiveActivityDynColorFollowPkgIcon,
     ShowLiveActivity,
@@ -59,6 +60,7 @@ enum class BooleanSetting {
     LabModuleAlwaysRoot,
     LabHttpSaveFile,
     LabSetInstallRequester,
+    LabTapIconToShare,
     EnableFileLogging
 }
 

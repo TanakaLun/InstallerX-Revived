@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 iamr0s, InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.widget.setting
 
 import androidx.annotation.StringRes
@@ -64,13 +66,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
 import com.rosan.installer.data.engine.executor.PackageManagerUtil
+import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
 import com.rosan.installer.domain.settings.model.Authorizer
 import com.rosan.installer.domain.settings.model.HttpProfile
 import com.rosan.installer.domain.settings.model.InstallMode
 import com.rosan.installer.domain.settings.model.NamedPackage
 import com.rosan.installer.domain.settings.model.RootImplementation
 import com.rosan.installer.domain.settings.model.SharedUid
-import com.rosan.installer.ui.common.LocalSessionInstallSupported
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.about.AboutAction
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.about.AboutViewModel
@@ -82,8 +84,8 @@ import com.rosan.installer.ui.page.main.settings.preferred.subpage.uninstaller.U
 import com.rosan.installer.ui.page.main.settings.preferred.subpage.uninstaller.UninstallerSettingsViewModel
 import com.rosan.installer.ui.theme.material.PaletteStyle
 import com.rosan.installer.ui.theme.material.ThemeColorSpec
-import com.rosan.installer.ui.util.rememberCacheInfo
 import com.rosan.installer.util.hasFlag
+import org.koin.compose.koinInject
 
 data class AuthorizerInfo(
     @param:StringRes val labelResId: Int,
@@ -103,9 +105,10 @@ fun DataAuthorizerWidget(
     trailingContent: @Composable () -> Unit = {},
 ) {
     val haptic = LocalHapticFeedback.current
+    val capabilityProvider = koinInject<DeviceCapabilityProvider>()
     val shizukuIcon = ImageVector.vectorResource(R.drawable.ic_shizuku)
 
-    val isSessionInstallSupported = LocalSessionInstallSupported.current
+    val isSessionInstallSupported = capabilityProvider.isSessionInstallSupported
     val authorizerOptions = mapOf(
         Authorizer.None to AuthorizerInfo(
             R.string.config_authorizer_none,
@@ -420,18 +423,6 @@ fun DefaultInstaller(
             stringResource(if (lock) R.string.lock_default_installer_desc else R.string.unlock_default_installer_desc),
         enabled = enabled,
         onClick = onClick
-    ) {}
-}
-
-@Composable
-fun ClearCache() {
-    val cacheState = rememberCacheInfo()
-    BaseWidget(
-        icon = AppIcons.ClearAll,
-        title = stringResource(id = R.string.clear_cache),
-        description = cacheState.description,
-        enabled = !cacheState.inProgress,
-        onClick = { cacheState.onClear() }
     ) {}
 }
 

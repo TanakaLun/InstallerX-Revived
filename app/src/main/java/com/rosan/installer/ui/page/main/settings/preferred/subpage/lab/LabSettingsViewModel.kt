@@ -21,7 +21,6 @@ class LabSettingsViewModel(
 
     val state: StateFlow<LabSettingsState> = appSettingsRepo.preferencesFlow.map { prefs ->
         LabSettingsState(
-            isLoading = false,
             useBlur = prefs.useBlur,
             labRootEnableModuleFlash = prefs.labRootEnableModuleFlash,
             labRootShowModuleArt = prefs.labRootShowModuleArt,
@@ -30,12 +29,13 @@ class LabSettingsViewModel(
             labUseMiIsland = prefs.labUseMiIsland,
             labSetInstallRequester = prefs.labSetInstallRequester,
             labHttpProfile = prefs.labHttpProfile,
-            labHttpSaveFile = prefs.labHttpSaveFile
+            labHttpSaveFile = prefs.labHttpSaveFile,
+            labTapIconToShare = prefs.labTapIconToShare
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = LabSettingsState(isLoading = true)
+        initialValue = LabSettingsState()
     )
 
     fun dispatch(action: LabSettingsAction) {
@@ -68,7 +68,13 @@ class LabSettingsViewModel(
                 )
             }
 
-            is LabSettingsAction.LabChangeUseMiIsland -> viewModelScope.launch { updateSetting(BooleanSetting.ShowMiIsland, action.enable) }
+            is LabSettingsAction.LabChangeUseMiIsland -> viewModelScope.launch {
+                updateSetting(
+                    BooleanSetting.ShowMiIsland,
+                    action.enable
+                )
+            }
+
             is LabSettingsAction.LabChangeSetInstallRequester -> viewModelScope.launch {
                 updateSetting(
                     BooleanSetting.LabSetInstallRequester,
@@ -83,7 +89,19 @@ class LabSettingsViewModel(
                 )
             }
 
-            is LabSettingsAction.LabChangeHttpSaveFile -> viewModelScope.launch { updateSetting(BooleanSetting.LabHttpSaveFile, action.enable) }
+            is LabSettingsAction.LabChangeHttpSaveFile -> viewModelScope.launch {
+                updateSetting(
+                    BooleanSetting.LabHttpSaveFile,
+                    action.enable
+                )
+            }
+
+            is LabSettingsAction.LabChangeTapIconToShare -> viewModelScope.launch {
+                updateSetting(
+                    BooleanSetting.LabTapIconToShare,
+                    action.enable
+                )
+            }
         }
     }
 }

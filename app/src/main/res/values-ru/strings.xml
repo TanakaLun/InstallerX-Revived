@@ -346,7 +346,7 @@
     <string name="unlock_default_installer_success">Назначение успешно отменено</string>
     <string name="unstable">Альфа</string>
     <string name="update">Опции профиля</string>
-    <string name="upgrade_version_prefix">Ставимая</string>
+    <string name="upgrade_version_prefix">Будет установлена</string>
     <string name="user_terms">Пользовательское соглашение</string>
     <string name="version_compare_in_single_line">Сравнение версий в одной строке</string>
     <string name="version_compare_in_single_line_desc">Отображать сравнение версий пакетов в одной строке при установке</string>
@@ -695,4 +695,13 @@
     <string name="exception_resolve_failed_link_not_valid">Эта ссылка не содержит действительный файл</string>
     <string name="tag_arch_emulated">Разрядность</string>
     <string name="exception_install_parse_failed_bad_shared_user_id">Сторонним приложениям запрещено использовать системный ID</string>
+    <string name="error_dialog_install_menu_not_available">Расширенное меню недоступно</string>
+    <string name="lab_tap_icon_to_share_desc">Возможность поделиться apk-файлом при нажатии на иконку перед установкой</string>
+    <string name="lab_tap_icon_to_share">Поделиться apk-файлом</string>
+    <string name="error_no_package_to_uninstall">Нет доступного пакета для удаления</string>
+    <string name="installer_xposed_target_api">Целевой API:</string>
+    <string name="installer_xposed_min_api">Мин. API:</string>
+    <string name="theme_settings_use_apple_floating_bar_desc">Отображать плавающую панель навигации в нижней части экрана</string>
+    <string name="theme_settings_use_apple_floating_bar">Плавающая панель снизу</string>
+    <string name="copied_format">Скопировано: %1$s</string>
 </resources>

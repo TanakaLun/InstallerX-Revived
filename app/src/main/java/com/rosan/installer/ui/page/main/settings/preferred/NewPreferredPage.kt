@@ -1,17 +1,21 @@
-// File: com/rosan/installer/ui/page/main/settings/preferred/NewPreferredPage.kt
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.preferred
 
 import android.annotation.SuppressLint
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -34,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -49,14 +54,13 @@ import com.rosan.installer.ui.page.main.settings.SettingsScreen
 import com.rosan.installer.ui.page.main.widget.card.InfoTipCard
 import com.rosan.installer.ui.page.main.widget.dialog.ErrorDisplayDialog
 import com.rosan.installer.ui.page.main.widget.setting.AutoLockInstaller
-import com.rosan.installer.ui.page.main.widget.setting.ClearCache
 import com.rosan.installer.ui.page.main.widget.setting.DefaultInstaller
 import com.rosan.installer.ui.page.main.widget.setting.DisableAdbVerify
 import com.rosan.installer.ui.page.main.widget.setting.IgnoreBatteryOptimizationSetting
-import com.rosan.installer.ui.page.main.widget.setting.OnLifecycleEvent
 import com.rosan.installer.ui.page.main.widget.setting.SettingsAboutItemWidget
 import com.rosan.installer.ui.page.main.widget.setting.SettingsNavigationItemWidget
 import com.rosan.installer.ui.page.main.widget.setting.SplicedColumnGroup
+import com.rosan.installer.ui.page.main.widget.util.OnLifecycleEvent
 import com.rosan.installer.ui.theme.getM3TopBarColor
 import com.rosan.installer.ui.theme.installerHazeEffect
 import com.rosan.installer.ui.theme.none
@@ -122,6 +126,9 @@ fun NewPreferredPage(
         }
     }
 
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
+
     Scaffold(
         modifier = Modifier
             .nestedScroll(scrollBehavior.nestedScrollConnection)
@@ -148,139 +155,126 @@ fun NewPreferredPage(
             )
         },
     ) { paddingValues ->
-        Crossfade(
-            targetState = uiState.isLoading,
-            label = "PreferredPageContent",
-            animationSpec = tween(durationMillis = 150)
-        ) { isLoading ->
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(hazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
-                    contentPadding = PaddingValues(
-                        top = paddingValues.calculateTopPadding(),
-                        bottom = outerPadding.calculateBottomPadding()
-                    )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(hazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
+            contentPadding = PaddingValues(
+                start = horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                top = paddingValues.calculateTopPadding(),
+                end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
+                bottom = outerPadding.calculateBottomPadding()
+            )
+        ) {
+            // --- Global Settings Group ---
+            item {
+                SplicedColumnGroup(
+                    title = stringResource(R.string.personalization)
                 ) {
-                    // --- Global Settings Group ---
                     item {
-                        SplicedColumnGroup(
-                            title = stringResource(R.string.personalization)
-                        ) {
-                            item {
-                                SettingsNavigationItemWidget(
-                                    icon = AppIcons.Theme,
-                                    title = stringResource(R.string.theme_settings),
-                                    description = stringResource(R.string.theme_settings_desc),
-                                    onClick = { navController.navigate(SettingsScreen.Theme.route) }
-                                )
-                            }
-                            item {
-                                SettingsNavigationItemWidget(
-                                    icon = AppIcons.InstallMode,
-                                    title = stringResource(R.string.installer_settings),
-                                    description = stringResource(R.string.installer_settings_desc),
-                                    onClick = { navController.navigate(SettingsScreen.InstallerGlobal.route) }
-                                )
-                            }
-                            item {
-                                SettingsNavigationItemWidget(
-                                    icon = AppIcons.Delete,
-                                    title = stringResource(R.string.uninstaller_settings),
-                                    description = stringResource(R.string.uninstaller_settings_desc),
-                                    onClick = { navController.navigate(SettingsScreen.UninstallerGlobal.route) }
-                                )
-                            }
-                        }
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.Theme,
+                            title = stringResource(R.string.theme_settings),
+                            description = stringResource(R.string.theme_settings_desc),
+                            onClick = { navController.navigate(SettingsScreen.Theme.route) }
+                        )
                     }
-
-                    if (uiState.authorizer == Authorizer.None)
-                        item {
-                            val tip = if (capabilityProvider.isSystemApp) stringResource(R.string.config_authorizer_none_system_app_tips)
-                            else stringResource(R.string.config_authorizer_none_tips)
-                            InfoTipCard(text = tip)
-                        }
-
-                    // --- Basic Settings Group ---
                     item {
-                        SplicedColumnGroup(
-                            title = stringResource(R.string.basic)
-                        ) {
-                            item {
-                                DisableAdbVerify(
-                                    checked = !uiState.adbVerifyEnabled,
-                                    isError = uiState.authorizer == Authorizer.Dhizuku,
-                                    enabled = uiState.authorizer != Authorizer.Dhizuku &&
-                                            uiState.authorizer != Authorizer.None,
-                                    onCheckedChange = { isDisabled ->
-                                        viewModel.dispatch(PreferredViewAction.SetAdbVerifyEnabledState(!isDisabled))
-                                    }
-                                )
-                            }
-                            item {
-                                IgnoreBatteryOptimizationSetting(
-                                    checked = uiState.isIgnoringBatteryOptimizations,
-                                    enabled = !uiState.isIgnoringBatteryOptimizations,
-                                ) { viewModel.dispatch(PreferredViewAction.RequestIgnoreBatteryOptimization) }
-                            }
-                            item {
-                                AutoLockInstaller(
-                                    checked = uiState.autoLockInstaller,
-                                    enabled = uiState.authorizer != Authorizer.None
-                                ) { viewModel.dispatch(PreferredViewAction.ChangeAutoLockInstaller(!uiState.autoLockInstaller)) }
-                            }
-                            item {
-                                DefaultInstaller(
-                                    lock = true,
-                                    enabled = uiState.authorizer != Authorizer.None
-                                ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(true)) }
-                            }
-                            item {
-                                DefaultInstaller(
-                                    lock = false,
-                                    enabled = uiState.authorizer != Authorizer.None
-                                ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(false)) }
-                            }
-                            item { ClearCache() }
-                        }
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.InstallMode,
+                            title = stringResource(R.string.installer_settings),
+                            description = stringResource(R.string.installer_settings_desc),
+                            onClick = { navController.navigate(SettingsScreen.InstallerGlobal.route) }
+                        )
                     }
-                    // --- Other Settings Group ---
                     item {
-                        SplicedColumnGroup(
-                            title = stringResource(R.string.other)
-                        ) {
-                            item {
-                                SettingsAboutItemWidget(
-                                    imageVector = AppIcons.Lab,
-                                    headlineContentText = stringResource(R.string.lab),
-                                    supportingContentText = stringResource(R.string.lab_desc),
-                                    onClick = { navController.navigate(SettingsScreen.Lab.route) }
-                                )
-                            }
-                            item {
-                                SettingsAboutItemWidget(
-                                    imageVector = AppIcons.Info,
-                                    headlineContentText = stringResource(R.string.about_detail),
-                                    supportingContentText = if (uiState.hasUpdate) stringResource(
-                                        R.string.update_available,
-                                        uiState.remoteVersion
-                                    ) else "$revLevel ${AppConfig.VERSION_NAME}",
-                                    supportingContentColor = if (uiState.hasUpdate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    onClick = { navController.navigate(SettingsScreen.About.route) }
-                                )
-                            }
-                        }
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.Delete,
+                            title = stringResource(R.string.uninstaller_settings),
+                            description = stringResource(R.string.uninstaller_settings_desc),
+                            onClick = { navController.navigate(SettingsScreen.UninstallerGlobal.route) }
+                        )
                     }
-                    item { Spacer(Modifier.navigationBarsPadding()) }
                 }
             }
+
+            if (uiState.authorizer == Authorizer.None)
+                item {
+                    val tip = if (capabilityProvider.isSystemApp) stringResource(R.string.config_authorizer_none_system_app_tips)
+                    else stringResource(R.string.config_authorizer_none_tips)
+                    InfoTipCard(text = tip)
+                }
+
+            // --- Basic Settings Group ---
+            item {
+                SplicedColumnGroup(
+                    title = stringResource(R.string.basic)
+                ) {
+                    item {
+                        DisableAdbVerify(
+                            checked = !uiState.adbVerifyEnabled,
+                            isError = uiState.authorizer == Authorizer.Dhizuku,
+                            enabled = uiState.authorizer != Authorizer.Dhizuku &&
+                                    uiState.authorizer != Authorizer.None,
+                            onCheckedChange = { isDisabled ->
+                                viewModel.dispatch(PreferredViewAction.SetAdbVerifyEnabledState(!isDisabled))
+                            }
+                        )
+                    }
+                    item {
+                        IgnoreBatteryOptimizationSetting(
+                            checked = uiState.isIgnoringBatteryOptimizations,
+                            enabled = !uiState.isIgnoringBatteryOptimizations,
+                        ) { viewModel.dispatch(PreferredViewAction.RequestIgnoreBatteryOptimization) }
+                    }
+                    item {
+                        AutoLockInstaller(
+                            checked = uiState.autoLockInstaller,
+                            enabled = uiState.authorizer != Authorizer.None
+                        ) { viewModel.dispatch(PreferredViewAction.ChangeAutoLockInstaller(!uiState.autoLockInstaller)) }
+                    }
+                    item {
+                        DefaultInstaller(
+                            lock = true,
+                            enabled = uiState.authorizer != Authorizer.None
+                        ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(true)) }
+                    }
+                    item {
+                        DefaultInstaller(
+                            lock = false,
+                            enabled = uiState.authorizer != Authorizer.None
+                        ) { viewModel.dispatch(PreferredViewAction.SetDefaultInstaller(false)) }
+                    }
+                }
+            }
+            // --- Other Settings Group ---
+            item {
+                SplicedColumnGroup(
+                    title = stringResource(R.string.other)
+                ) {
+                    item {
+                        SettingsAboutItemWidget(
+                            imageVector = AppIcons.Lab,
+                            headlineContentText = stringResource(R.string.lab),
+                            supportingContentText = stringResource(R.string.lab_desc),
+                            onClick = { navController.navigate(SettingsScreen.Lab.route) }
+                        )
+                    }
+                    item {
+                        SettingsAboutItemWidget(
+                            imageVector = AppIcons.Info,
+                            headlineContentText = stringResource(R.string.about_detail),
+                            supportingContentText = if (uiState.hasUpdate) stringResource(
+                                R.string.update_available,
+                                uiState.remoteVersion
+                            ) else "$revLevel ${AppConfig.VERSION_NAME}",
+                            supportingContentColor = if (uiState.hasUpdate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            onClick = { navController.navigate(SettingsScreen.About.route) }
+                        )
+                    }
+                }
+            }
+            item { Spacer(Modifier.navigationBarsPadding()) }
         }
     }
 

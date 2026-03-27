@@ -43,6 +43,7 @@ data class AppPreferences(
     val labHttpProfile: HttpProfile,
     val labHttpSaveFile: Boolean,
     val labSetInstallRequester: Boolean,
+    val labTapIconToShare: Boolean,
     val enableFileLogging: Boolean,
     // Theme Settings
     val themeMode: ThemeMode,
@@ -50,6 +51,7 @@ data class AppPreferences(
     val colorSpec: ThemeColorSpec,
     val useDynamicColor: Boolean,
     val useMiuixMonet: Boolean,
+    val useAppleFloatingBar: Boolean,
     val seedColorInt: Int, // Stored as raw Int from DataStore
     val useDynColorFollowPkgIcon: Boolean,
     val useDynColorFollowPkgIconForLiveActivity: Boolean,

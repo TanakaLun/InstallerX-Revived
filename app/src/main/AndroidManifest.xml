@@ -146,12 +146,23 @@
             android:finishOnTaskLaunch="true" />
 
         <service
-            android:name="com.rosan.installer.data.session.service.InstallerService"
+            android:name="com.rosan.installer.framework.service.InstallerService"
             android:foregroundServiceType="specialUse">
 
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="installer_processing" />
+        </service>
+
+        <service
+            android:label="@string/app_name"
+            android:icon="@drawable/ic_tile_icon"
+            android:name="com.rosan.installer.framework.tile.SettingsTileService"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
         </service>
 
         <provider
@@ -173,7 +184,7 @@
         </provider>
 
         <receiver
-            android:name=".SecretCodeReceiver"
+            android:name=".framework.receiver.SecretCodeReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.provider.Telephony.SECRET_CODE" />

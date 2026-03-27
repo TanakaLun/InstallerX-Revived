@@ -3,6 +3,7 @@ package com.rosan.installer
 import android.app.Application
 import android.os.Build
 import com.kieronquinn.monetcompat.core.MonetCompat
+import com.rosan.installer.core.crash.CrashHandler
 import com.rosan.installer.core.env.AppConfig
 import com.rosan.installer.data.privileged.service.AutoLockService
 import com.rosan.installer.di.init.appModules
@@ -27,7 +28,13 @@ class App : Application() {
             MonetCompat.getInstance().updateMonetColors()
         }
 
-        if (AppConfig.isLogEnabled) Timber.plant(Timber.DebugTree())
+        if (AppConfig.isLogEnabled) Timber.plant(object : Timber.DebugTree() {
+            override fun createStackElementTag(element: StackTraceElement): String? {
+                return super.createStackElementTag(element)
+                    ?.substringBefore('$')
+                    ?.take(23)
+            }
+        })
 
         startKoin {
             // Koin Android Logger

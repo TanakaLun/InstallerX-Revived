@@ -5,15 +5,15 @@ import java.util.Properties
 // Get git commit hash safely, compatible with configuration cache
 val gitHash: String = try {
     providers.exec {
-        commandLine("git", "rev-parse", "--short", "HEAD")
+        commandLine("git", "rev-parse", "--short=7", "HEAD")
     }.standardOutput.asText.get().trim()
-} catch (e: Exception) {
+} catch (_: Exception) {
     "unknown"
 }
 
 val manualVersionName = project.findProperty("VERSION_NAME") as String?
-val dynamicVersionName = LocalDate.now().format(DateTimeFormatter.ofPattern("yy.MM"))
-val baseVersionName = manualVersionName ?: dynamicVersionName
+val dynamicVersionName: String = LocalDate.now().format(DateTimeFormatter.ofPattern("yy.MM"))
+val baseVersionName: String = manualVersionName ?: dynamicVersionName
 
 plugins {
     alias(libs.plugins.agp.app)
@@ -25,7 +25,8 @@ plugins {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = 37
+    compileSdkMinor = 0
 
     val properties = Properties()
     val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -53,7 +54,7 @@ android {
             ?: "com.rosan.installer.x.revived"
         namespace = "com.rosan.installer"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         // Version control:
         // - versionName is auto-generated as "yy.MM" by default,
         //   or manually set via the VERSION_NAME Gradle property.
@@ -61,11 +62,10 @@ android {
         //   (e.g., "25.07.abc1234"), configured in productFlavors.
         // - Stable builds use the base versionName as-is (e.g., "25.07").
         // - versionCode must be incremented manually before each Stable release.
-        versionCode = 46
+        versionCode = 47
         versionName = baseVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
     }
 
     signingConfigs {
@@ -106,7 +106,7 @@ android {
                     println("Applying custom signing to release build.")
                     signingConfigs.getByName("releaseCustom")
                 } else {
-                    println("No custom signing info. Debug build will use the default debug keystore.")
+                    println("No custom signing info. Release build will use the default debug keystore.")
                     signingConfigs.getByName("debug")
                 }
             isShrinkResources = true
@@ -221,8 +221,6 @@ dependencies {
     implementation(libs.koin.compose)
     implementation(libs.koin.compose.viewmodel)
 
-    implementation(libs.accompanist.drawablepainter)
-
     implementation(libs.rikka.shizuku.api)
     implementation(libs.rikka.shizuku.provider)
 
@@ -243,11 +241,13 @@ dependencies {
     implementation(libs.miuix)
     implementation(libs.miuix.icons)
     implementation(libs.capsule)
+    implementation(libs.backdrop)
     // haze
     implementation(libs.haze)
     implementation(libs.haze.materials)
 
     // okhttp
+    implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp)
 
     // monetcompat

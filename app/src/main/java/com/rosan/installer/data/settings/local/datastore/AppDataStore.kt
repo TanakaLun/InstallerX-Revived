@@ -30,6 +30,7 @@ class AppDataStore(
         val THEME_SEED_COLOR = intPreferencesKey("theme_seed_color")
         val UI_USE_MIUIX = booleanPreferencesKey("ui_use_miui_x")
         val UI_USE_MIUIX_MONET = booleanPreferencesKey("ui_use_miui_x_monet")
+        val UI_USE_APPLE_FLOATING_BAR = booleanPreferencesKey("ui_use_apple_floating_bar")
         val UI_DYN_COLOR_FOLLOW_PKG_ICON = booleanPreferencesKey("ui_dyn_color_follow_pkg_icon")
         val LIVE_ACTIVITY_DYN_COLOR_FOLLOW_PKG_ICON = booleanPreferencesKey("live_activity_dyn_color_follow_pkg_icon")
 
@@ -108,6 +109,7 @@ class AppDataStore(
         val LAB_HTTP_PROFILE = stringPreferencesKey("lab_http_profile")
         val LAB_HTTP_SAVE_FILE = booleanPreferencesKey("lab_http_save_file")
         val LAB_SET_INSTALL_REQUESTER = booleanPreferencesKey("lab_set_install_requester")
+        val LAB_TAP_ICON_TO_SHARE = booleanPreferencesKey("lab_tap_icon_to_share")
 
         // Debug
         val ENABLE_FILE_LOGGING = booleanPreferencesKey("enable_file_logging")

@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 iamr0s, InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.installer.dialog.inner
 
+import android.content.ClipData
 import android.os.Build
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
@@ -16,6 +19,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,19 +43,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
 import com.rosan.installer.core.env.DeviceConfig
 import com.rosan.installer.domain.device.model.Manufacturer
@@ -61,15 +69,17 @@ import com.rosan.installer.domain.engine.model.InstalledAppInfo
 import com.rosan.installer.domain.engine.model.sortedBest
 import com.rosan.installer.domain.session.repository.InstallerSessionRepository
 import com.rosan.installer.ui.icons.AppIcons
+import com.rosan.installer.ui.page.main.installer.InstallerStage
+import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
-import com.rosan.installer.ui.page.main.installer.InstallerViewState
 import com.rosan.installer.ui.page.main.installer.dialog.DialogInnerParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParamsType
 import com.rosan.installer.ui.util.formatSize
 import com.rosan.installer.ui.util.toAndroidVersionName
+import com.rosan.installer.util.toast
+import kotlinx.coroutines.launch
 import kotlin.math.abs
-
 
 /**
  * Provides info display: Icon, Title, Subtitle (with version logic).
@@ -77,16 +87,20 @@ import kotlin.math.abs
  */
 @Composable
 fun installInfoDialog(
-    installer: InstallerSessionRepository,
+    session: InstallerSessionRepository,
     viewModel: InstallerViewModel,
     onTitleExtraClick: () -> Unit = {}
 ): DialogParams {
-    val settings = viewModel.viewSettings
-    val iconMap by viewModel.displayIcons.collectAsState()
-    val currentPackageName by viewModel.currentPackageName.collectAsState()
-    val currentPackage = installer.analysisResults.find { it.packageName == currentPackageName }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val settings = uiState.viewSettings
+    val iconMap = uiState.displayIcons
+    val currentPackageName = uiState.currentPackageName
+    val stage = uiState.stage
+
+    val currentPackage = session.analysisResults.find { it.packageName == currentPackageName }
     // If there's no current package to display, return empty params.
     if (currentPackage == null) return DialogParams()
+
     // The pre-install info is now directly available within main data model.
     val preInstallAppInfo = currentPackage.installedAppInfo
     val selectableEntities = currentPackage.appEntities
@@ -111,7 +125,7 @@ fun installInfoDialog(
                 else -> entityToInstall.packageName
             }
 
-    // Collect the icon state directly from the ViewModel.
+    // Get the icon from our map
     val displayIcon = iconMap[entityToInstall.packageName]
 
     return DialogParams(
@@ -122,22 +136,36 @@ fun installInfoDialog(
                     fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(150))
                 },
                 label = "IconLoadAnimation"
-            ) { icon ->
+            ) { iconBitmap ->
                 Box(
-                    modifier = Modifier.size(64.dp),
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .then(
+                            if (stage == InstallerStage.InstallPrepare && settings.labTapIconToShare) {
+                                Modifier.clickable {
+                                    viewModel.dispatch(InstallerViewAction.ShareApp(entityToInstall))
+                                }
+                            } else {
+                                Modifier
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(12.dp)),
-                        painter = rememberDrawablePainter(icon),
-                        contentDescription = null
-                    )
+                    if (iconBitmap != null)
+                        Image(
+                            bitmap = iconBitmap,
+                            modifier = Modifier.fillMaxSize(),
+                            contentDescription = null
+                        )
+
                 }
             }
         },
         title = DialogInnerParams(uniqueContentKey) {
+            val context = LocalContext.current
+            val clipboard = LocalClipboard.current
+            val scope = rememberCoroutineScope()
             // Use a Row with centered arrangement.
             // This will automatically center its visible children as a group.
             Row(
@@ -148,13 +176,26 @@ fun installInfoDialog(
                 Text(
                     text = displayLabel,
                     modifier = Modifier
+                        .weight(1f, fill = false)
                         .basicMarquee()
+                        .pointerInput(displayLabel) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    // Copy the app name to clipboard on long press
+                                    scope.launch {
+                                        val clipData = ClipData.newPlainText("App Name", displayLabel)
+                                        clipboard.setClipEntry(clipData.toClipEntry())
+                                        context.toast(R.string.copied_format, displayLabel)
+                                    }
+                                }
+                            )
+                        }
                 )
                 // Use AnimatedVisibility to show the button with an animation.
                 // When it becomes invisible, it will not take up any space,
                 // and the Row will re-center the Text automatically.
                 AnimatedVisibility(
-                    visible = viewModel.state == InstallerViewState.InstallPrepare || viewModel.state == InstallerViewState.InstallSuccess,
+                    visible = stage == InstallerStage.InstallPrepare || stage == InstallerStage.InstallSuccess,
                     enter = fadeIn() + slideInHorizontally { it }, // Slide in from the right
                     exit = fadeOut() + slideOutHorizontally { it }  // Slide out to the right
                 ) {
@@ -190,15 +231,33 @@ fun installInfoDialog(
             }
         },
         subtitle = DialogInnerParams(uniqueContentKey) {
+            val context = LocalContext.current
+            val clipboard = LocalClipboard.current
+            val scope = rememberCoroutineScope()
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 // verticalArrangement = Arrangement.spacedBy(4.dp) // Removed to avoid spacing issues during animation
             ) {
                 // --- PackageName Display  ---
+                val rawPackageName = entityToInstall.packageName
                 Text(
-                    stringResource(R.string.installer_package_name, entityToInstall.packageName),
+                    stringResource(R.string.installer_package_name, rawPackageName),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.basicMarquee()
+                    modifier = Modifier
+                        .basicMarquee()
+                        .pointerInput(rawPackageName) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    // Clipboard operations are suspend functions now
+                                    scope.launch {
+                                        val clipData = ClipData.newPlainText("Package Name", rawPackageName)
+                                        clipboard.setClipEntry(clipData.toClipEntry())
+                                        context.toast(R.string.copied_format, rawPackageName)
+                                    }
+                                }
+                            )
+                        }
                 )
 
                 Spacer(modifier = Modifier.size(8.dp))
@@ -302,7 +361,7 @@ fun installInfoDialog(
 
                     else -> {
                         AnimatedVisibility(
-                            visible = installer.config.displaySdk
+                            visible = session.config.displaySdk
                         ) {
                             Box(
                                 modifier = Modifier
@@ -391,7 +450,7 @@ fun installInfoDialog(
                     }
                 }
                 // --- Size Display ---
-                AnimatedVisibility(visible = installer.config.displaySize && totalSize > 0L) {
+                AnimatedVisibility(visible = session.config.displaySize && totalSize > 0L) {
                     Column {
                         Spacer(modifier = Modifier.size(8.dp))
                         SizeInfoDisplay(
@@ -571,7 +630,7 @@ private fun SdkInfoCompact(
             val oldValueContent = when {
                 isArchived -> stringResource(R.string.old_version_archived)
                 isUninstalled -> stringResource(R.string.old_version_uninstalled)
-                else -> oldSdk.orEmpty()
+                else -> oldSdk
             }
             val oldText = stringResource(shortLabelResId, oldValueContent)
             Text(text = oldText, style = MaterialTheme.typography.bodyMedium)

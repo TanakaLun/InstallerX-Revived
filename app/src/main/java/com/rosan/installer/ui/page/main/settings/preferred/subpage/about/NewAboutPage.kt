@@ -1,16 +1,22 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.preferred.subpage.about
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -33,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -47,11 +54,11 @@ import com.rosan.installer.ui.page.main.widget.card.StatusWidget
 import com.rosan.installer.ui.page.main.widget.setting.AppBackButton
 import com.rosan.installer.ui.page.main.widget.setting.BottomSheetContent
 import com.rosan.installer.ui.page.main.widget.setting.ExportLogsWidget
-import com.rosan.installer.ui.page.main.widget.setting.LogEventCollector
 import com.rosan.installer.ui.page.main.widget.setting.SettingsNavigationItemWidget
 import com.rosan.installer.ui.page.main.widget.setting.SplicedColumnGroup
 import com.rosan.installer.ui.page.main.widget.setting.SwitchWidget
 import com.rosan.installer.ui.page.main.widget.setting.UpdateLoadingIndicator
+import com.rosan.installer.ui.page.main.widget.util.LogEventCollector
 import com.rosan.installer.ui.theme.getM3TopBarColor
 import com.rosan.installer.ui.theme.installerHazeEffect
 import com.rosan.installer.ui.theme.rememberMaterial3HazeStyle
@@ -77,143 +84,133 @@ fun NewAboutPage(
 
     LogEventCollector(viewModel)
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
+
+    Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection)
+            .then(indicatorHazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        topBar = {
+            LargeFlexibleTopAppBar(
+                modifier = Modifier.installerHazeEffect(topBarHazeState, hazeStyle),
+                windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
+                title = { Text(text = stringResource(id = R.string.about)) },
+                scrollBehavior = scrollBehavior,
+                navigationIcon = {
+                    Row {
+                        AppBackButton(
+                            onClick = { navController.navigateUp() },
+                            icon = Icons.AutoMirrored.TwoTone.ArrowBack,
+                            modifier = Modifier.size(36.dp),
+                            containerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
+                        )
+                        Spacer(modifier = Modifier.size(16.dp))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = topBarHazeState.getM3TopBarColor(),
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    scrolledContainerColor = topBarHazeState.getM3TopBarColor()
+                )
+            )
+        },
+    ) { paddingValues ->
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .then(indicatorHazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            topBar = {
-                LargeFlexibleTopAppBar(
-                    modifier = Modifier.installerHazeEffect(topBarHazeState, hazeStyle),
-                    windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
-                    title = { Text(text = stringResource(id = R.string.about)) },
-                    scrollBehavior = scrollBehavior,
-                    navigationIcon = {
-                        Row {
-                            AppBackButton(
-                                onClick = { navController.navigateUp() },
-                                icon = Icons.AutoMirrored.TwoTone.ArrowBack,
-                                modifier = Modifier.size(36.dp),
-                                containerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
-                            )
-                            Spacer(modifier = Modifier.size(16.dp))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = topBarHazeState.getM3TopBarColor(),
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        scrolledContainerColor = topBarHazeState.getM3TopBarColor()
-                    )
-                )
-            },
-        ) { paddingValues ->
-            Crossfade(
-                targetState = uiState.isLoading,
-                label = "AboutPageContent",
-                animationSpec = tween(durationMillis = 150)
-            ) { isLoading ->
-                if (isLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(topBarHazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
-                        contentPadding = PaddingValues(
-                            top = paddingValues.calculateTopPadding()
-                        ),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 16.dp)
-                                    .padding(top = 8.dp, bottom = 12.dp)
-                            ) {
-                                StatusWidget(viewModel)
-                            }
-                        }
-                        item {
-                            SplicedColumnGroup(
-                                title = stringResource(R.string.about)
-                            ) {
-                                item {
-                                    SettingsNavigationItemWidget(
-                                        icon = AppIcons.ViewSourceCode,
-                                        title = stringResource(R.string.get_source_code),
-                                        description = stringResource(R.string.get_source_code_detail),
-                                        onClick = { uriHandler.openUri("https://github.com/wxxsfxyzm/InstallerX-Revived") }
-                                    )
-                                }
-                                item {
-                                    SettingsNavigationItemWidget(
-                                        icon = AppIcons.OpenSourceLicense,
-                                        title = stringResource(R.string.open_source_license),
-                                        description = stringResource(R.string.open_source_license_settings_description),
-                                        onClick = { navController.navigate(SettingsScreen.OpenSourceLicense.route) }
-                                    )
-                                }
-                                item {
-                                    SettingsNavigationItemWidget(
-                                        icon = AppIcons.Update,
-                                        title = stringResource(R.string.get_update),
-                                        description = stringResource(R.string.get_update_detail),
-                                        onClick = { showBottomSheet = true }
-                                    )
-                                }
-                                if (uiState.hasUpdate)
-                                    item {
-                                        SettingsNavigationItemWidget(
-                                            icon = AppIcons.Download,
-                                            title = stringResource(R.string.get_update_directly),
-                                            description = stringResource(R.string.get_update_directly_desc),
-                                            onClick = { viewModel.dispatch(AboutAction.PerformUpdate) }
-                                        )
-                                    }
-                            }
-                        }
-                        if (AppConfig.isLogEnabled && context.packageName == BuildConfig.APPLICATION_ID)
-                            item {
-                                SplicedColumnGroup(
-                                    title = stringResource(R.string.debug)
-                                ) {
-                                    item {
-                                        SwitchWidget(
-                                            icon = AppIcons.BugReport,
-                                            title = stringResource(R.string.save_logs),
-                                            description = stringResource(R.string.save_logs_desc),
-                                            checked = uiState.enableFileLogging,
-                                            onCheckedChange = { viewModel.dispatch(AboutAction.SetEnableFileLogging(it)) }
-                                        )
-                                    }
-                                    item(visible = uiState.enableFileLogging) {
-                                        ExportLogsWidget(viewModel)
-                                    }
-                                }
-                            }
-                        item { Spacer(Modifier.navigationBarsPadding()) }
-                    }
+                .then(topBarHazeState?.let { Modifier.hazeSource(it) } ?: Modifier),
+            contentPadding = PaddingValues(
+                start = horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                top = paddingValues.calculateTopPadding(),
+                end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
+                bottom = paddingValues.calculateBottomPadding()
+            ),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 8.dp, bottom = 12.dp)
+                ) {
+                    StatusWidget(viewModel)
                 }
-                if (showBottomSheet) {
-                    ModalBottomSheet(onDismissRequest = { showBottomSheet = false }) {
-                        BottomSheetContent(
-                            title = stringResource(R.string.get_update),
-                            hasUpdate = uiState.hasUpdate,
-                            onDirectUpdateClick = {
-                                showBottomSheet = false
-                                viewModel.dispatch(AboutAction.PerformUpdate)
-                            }
+            }
+            item {
+                SplicedColumnGroup(
+                    title = stringResource(R.string.about)
+                ) {
+                    item {
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.ViewSourceCode,
+                            title = stringResource(R.string.get_source_code),
+                            description = stringResource(R.string.get_source_code_detail),
+                            onClick = { uriHandler.openUri("https://github.com/wxxsfxyzm/InstallerX-Revived") }
                         )
                     }
+                    item {
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.OpenSourceLicense,
+                            title = stringResource(R.string.open_source_license),
+                            description = stringResource(R.string.open_source_license_settings_description),
+                            onClick = { navController.navigate(SettingsScreen.OpenSourceLicense.route) }
+                        )
+                    }
+                    item {
+                        SettingsNavigationItemWidget(
+                            icon = AppIcons.Update,
+                            title = stringResource(R.string.get_update),
+                            description = stringResource(R.string.get_update_detail),
+                            onClick = { showBottomSheet = true }
+                        )
+                    }
+                    if (uiState.hasUpdate)
+                        item {
+                            SettingsNavigationItemWidget(
+                                icon = AppIcons.Download,
+                                title = stringResource(R.string.get_update_directly),
+                                description = stringResource(R.string.get_update_directly_desc),
+                                onClick = { viewModel.dispatch(AboutAction.PerformUpdate) }
+                            )
+                        }
                 }
-                UpdateLoadingIndicator(hazeState = indicatorHazeState, viewModel = viewModel)
             }
+            if (AppConfig.isLogEnabled && context.packageName == BuildConfig.APPLICATION_ID)
+                item {
+                    SplicedColumnGroup(
+                        title = stringResource(R.string.debug)
+                    ) {
+                        item {
+                            SwitchWidget(
+                                icon = AppIcons.BugReport,
+                                title = stringResource(R.string.save_logs),
+                                description = stringResource(R.string.save_logs_desc),
+                                checked = uiState.enableFileLogging,
+                                onCheckedChange = { viewModel.dispatch(AboutAction.SetEnableFileLogging(it)) }
+                            )
+                        }
+                        item(visible = uiState.enableFileLogging) {
+                            ExportLogsWidget(viewModel)
+                        }
+                    }
+                }
+            item { Spacer(Modifier.navigationBarsPadding()) }
         }
     }
+    if (showBottomSheet) {
+        ModalBottomSheet(onDismissRequest = { showBottomSheet = false }) {
+            BottomSheetContent(
+                title = stringResource(R.string.get_update),
+                hasUpdate = uiState.hasUpdate,
+                onDirectUpdateClick = {
+                    showBottomSheet = false
+                    viewModel.dispatch(AboutAction.PerformUpdate)
+                }
+            )
+        }
+    }
+    UpdateLoadingIndicator(hazeState = indicatorHazeState, viewModel = viewModel)
 }

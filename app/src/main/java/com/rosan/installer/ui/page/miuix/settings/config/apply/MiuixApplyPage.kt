@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (C) 2023-2026 InstallerX Revived contributors
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.settings.config.apply
 
-import android.graphics.drawable.Drawable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
@@ -19,9 +18,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -35,32 +42,29 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.rosan.installer.R
-import com.rosan.installer.data.engine.repository.AppIconCache
-import com.rosan.installer.ui.common.ViewContent
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.settings.config.apply.ApplyViewAction
 import com.rosan.installer.ui.page.main.settings.config.apply.ApplyViewApp
 import com.rosan.installer.ui.page.main.settings.config.apply.ApplyViewModel
 import com.rosan.installer.ui.page.main.settings.config.apply.ApplyViewState
+import com.rosan.installer.ui.page.main.settings.config.apply.ViewContent
 import com.rosan.installer.ui.page.miuix.widgets.MiuixBackButton
 import com.rosan.installer.ui.page.miuix.widgets.MiuixDropdown
 import com.rosan.installer.ui.theme.getMiuixAppBarColor
@@ -68,7 +72,6 @@ import com.rosan.installer.ui.theme.installerHazeEffect
 import com.rosan.installer.ui.theme.rememberMiuixHazeStyle
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -118,6 +121,9 @@ fun MiuixApplyPage(
         }
     }
 
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
+
     Scaffold(
         topBar = {
             Column(
@@ -141,7 +147,10 @@ fun MiuixApplyPage(
                 InputField(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(
+                            start = 16.dp + horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                            end = 16.dp + horizontalSafeInsets.calculateEndPadding(layoutDirection)
+                        )
                         .padding(bottom = 8.dp),
                     query = uiState.search,
                     onQueryChange = { viewModel.dispatch(ApplyViewAction.Search(it)) },
@@ -166,7 +175,10 @@ fun MiuixApplyPage(
 
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 6.dp)
+                        .padding(
+                            start = 6.dp + horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                            end = 6.dp + horizontalSafeInsets.calculateEndPadding(layoutDirection)
+                        )
                         .padding(bottom = 6.dp)
                 ) {
                     MiuixDropdown(
@@ -257,8 +269,10 @@ fun MiuixApplyPage(
                                 .nestedScroll(scrollBehavior.nestedScrollConnection),
                             state = lazyListState,
                             contentPadding = PaddingValues(
+                                start = horizontalSafeInsets.calculateStartPadding(layoutDirection),
                                 top = paddingValues.calculateTopPadding() + 8.dp,
-                                bottom = paddingValues.calculateBottomPadding() + 16.dp
+                                end = horizontalSafeInsets.calculateEndPadding(layoutDirection),
+                                bottom = paddingValues.calculateBottomPadding()
                             ),
                             overscrollEffect = null
                         ) {
@@ -289,6 +303,13 @@ fun MiuixApplyPage(
                                 }
 
                                 val isApplied = appliedPackageSet.contains(app.packageName)
+                                // Dispatch action to load the icon when the item becomes visible
+                                LaunchedEffect(app.packageName) {
+                                    viewModel.dispatch(ApplyViewAction.LoadIcon(app.packageName))
+                                }
+
+                                // Retrieve the dynamically loaded icon from the state
+                                val iconBitmap = uiState.displayIcons[app.packageName]
 
                                 MiuixItemWidget(
                                     modifier = Modifier
@@ -303,6 +324,7 @@ fun MiuixApplyPage(
                                             )
                                         ),
                                     app = app,
+                                    icon = iconBitmap, // Pass the managed state
                                     isApplied = isApplied,
                                     shape = shape,
                                     onToggle = { isChecked ->
@@ -314,6 +336,7 @@ fun MiuixApplyPage(
                                     showPackageName = uiState.showPackageName
                                 )
                             }
+                            item { Spacer(modifier = Modifier.navigationBarsPadding()) }
                         }
                     }
                 }
@@ -326,6 +349,7 @@ fun MiuixApplyPage(
 private fun MiuixItemWidget(
     modifier: Modifier = Modifier,
     app: ApplyViewApp,
+    icon: ImageBitmap?,
     isApplied: Boolean,
     shape: Shape,
     onToggle: (Boolean) -> Unit,
@@ -349,31 +373,12 @@ private fun MiuixItemWidget(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            val context = LocalContext.current
-            val density = LocalDensity.current
-            val iconSizePx = remember(density) { with(density) { 40.dp.roundToPx() } }
 
-            var icon by remember(app.packageName) { mutableStateOf<Drawable?>(null) }
-
-            LaunchedEffect(app.packageName) {
-                launch(Dispatchers.IO) {
-                    val pm = context.packageManager
-                    val info = runCatching {
-                        pm.getApplicationInfo(app.packageName, 0)
-                    }.getOrNull()
-
-                    if (info != null) {
-                        val loadedIcon = AppIconCache.loadIconDrawable(context, info, iconSizePx)
-                        if (loadedIcon != null) {
-                            icon = loadedIcon
-                        }
-                    }
-                }
-            }
+            // The redundant side-effect logic and Context usage have been completely removed.
 
             if (icon != null) {
                 Image(
-                    painter = rememberDrawablePainter(icon),
+                    bitmap = icon,
                     modifier = Modifier
                         .size(40.dp)
                         .align(Alignment.CenterVertically),

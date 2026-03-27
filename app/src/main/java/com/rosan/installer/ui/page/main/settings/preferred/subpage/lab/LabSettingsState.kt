@@ -6,7 +6,6 @@ import com.rosan.installer.domain.settings.model.HttpProfile
 import com.rosan.installer.domain.settings.model.RootImplementation
 
 data class LabSettingsState(
-    val isLoading: Boolean = true,
     val useBlur: Boolean = true,
     val labRootEnableModuleFlash: Boolean = false,
     val labRootShowModuleArt: Boolean = true,
@@ -15,5 +14,6 @@ data class LabSettingsState(
     val labUseMiIsland: Boolean = false,
     val labSetInstallRequester: Boolean = false,
     val labHttpProfile: HttpProfile = HttpProfile.ALLOW_SECURE,
-    val labHttpSaveFile: Boolean = false
+    val labHttpSaveFile: Boolean = false,
+    val labTapIconToShare: Boolean = false
 )

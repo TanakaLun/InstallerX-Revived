@@ -26,11 +26,15 @@ import com.rosan.installer.domain.settings.usecase.config.GetConfigDraftUseCase
 import com.rosan.installer.domain.settings.usecase.config.GetResolvedConfigUseCase
 import com.rosan.installer.domain.settings.usecase.config.SaveConfigUseCase
 import com.rosan.installer.domain.settings.usecase.config.ToggleAppTargetConfigUseCase
+import com.rosan.installer.domain.settings.usecase.settings.GetPackageUidUseCase
 import com.rosan.installer.domain.settings.usecase.settings.ManagePackageListUseCase
 import com.rosan.installer.domain.settings.usecase.settings.ManageSharedUidListUseCase
 import com.rosan.installer.domain.settings.usecase.settings.SetLauncherIconUseCase
 import com.rosan.installer.domain.settings.usecase.settings.ToggleUninstallFlagUseCase
 import com.rosan.installer.domain.settings.usecase.settings.UpdateSettingUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.factoryOf
@@ -38,6 +42,9 @@ import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val settingsModule = module {
+    // Provide a global coroutineScope
+    single<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
+
     // Room
     single { InstallerRoom.createInstance() }
 
@@ -70,7 +77,7 @@ val settingsModule = module {
     singleOf(::ThemeStateProvider)
 
     // UseCases
-    factory { GetResolvedConfigUseCase(androidContext(), get(), get(), get(), get()) }
+    factoryOf(::GetResolvedConfigUseCase)
     factoryOf(::GetConfigDraftUseCase)
     factoryOf(::SaveConfigUseCase)
     factoryOf(::UpdateSettingUseCase)
@@ -79,4 +86,5 @@ val settingsModule = module {
     factoryOf(::ToggleAppTargetConfigUseCase)
     factoryOf(::ManagePackageListUseCase)
     factoryOf(::ManageSharedUidListUseCase)
+    factoryOf(::GetPackageUidUseCase)
 }
