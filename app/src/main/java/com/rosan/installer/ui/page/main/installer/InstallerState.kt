@@ -4,15 +4,17 @@ package com.rosan.installer.ui.page.main.installer
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import com.rosan.installer.domain.engine.model.PackageAnalysisResult
 import com.rosan.installer.domain.session.model.UninstallInfo
+import com.rosan.installer.domain.settings.model.ConfigModel
 import com.rosan.installer.domain.settings.model.NamedPackage
+import com.rosan.installer.domain.settings.model.RootMode
 
 /**
  * Represents the entire UI state for the Installer screen.
  * Follows Unidirectional Data Flow (UDF) principles.
  */
 data class InstallerState(
-    // The core state machine step
     val stage: InstallerStage = InstallerStage.Ready,
 
     // UI specific toggles and settings
@@ -20,25 +22,30 @@ data class InstallerState(
     val showMiuixSheetRightActionSettings: Boolean = false,
     val showMiuixPermissionList: Boolean = false,
     val navigatedFromPrepareToChoice: Boolean = false,
+    // Used to temporarily override the persistent setting during this session
+    val tempShowOPPOSpecial: Boolean? = null,
+    val tempLabShowFilePath: Boolean? = null,
+    val tempLabShowInstallInitiator: Boolean? = null,
 
     // Visual data
     val currentPackageName: String? = null,
+    val initiatorAppLabel: String? = null,
     val displayIcons: Map<String, ImageBitmap?> = emptyMap(),
     val seedColor: Color? = null,
 
-    // Configuration data
-    val installFlags: Int = 0,
+    val analysisResults: List<PackageAnalysisResult> = emptyList(),
+    val config: ConfigModel = ConfigModel.generateOptimalDefault(),
+
     val defaultInstallerFromSettings: String? = null,
     val managedInstallerPackages: List<NamedPackage> = emptyList(),
-    val selectedInstaller: String? = null,
 
-    // User configuration
+    // User State & Other
+    val rootMode: RootMode = RootMode.Magisk,
     val availableUsers: Map<Int, String> = emptyMap(),
-    val selectedUserId: Int = 0,
-
-    // Uninstallation specific data
     val uiUninstallInfo: UninstallInfo? = null,
-    val uninstallFlags: Int = 0
+
+    // Error State
+    val error: Throwable = Throwable()
 ) {
     /**
      * Determines if the dialog can be dismissed by tapping the scrim.

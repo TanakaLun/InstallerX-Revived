@@ -8,18 +8,20 @@ import android.os.Build
 import android.provider.Settings
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
 import com.rosan.installer.core.env.DeviceConfig
 import com.rosan.installer.domain.device.model.Manufacturer
 import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
 import com.rosan.installer.domain.engine.model.InstallErrorType
 import com.rosan.installer.domain.engine.model.InstallOption
-import com.rosan.installer.domain.session.repository.InstallerSessionRepository
 import com.rosan.installer.domain.settings.model.Authorizer
+import com.rosan.installer.domain.settings.model.InstallerMode
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
@@ -39,21 +41,22 @@ data class ErrorSuggestion(
 @Composable
 fun rememberErrorSuggestions(
     error: Throwable,
-    session: InstallerSessionRepository,
     viewModel: InstallerViewModel,
     onShowUninstallConfirm: (keepData: Boolean, conflictingPkg: String?) -> Unit
 ): List<ErrorSuggestion> {
     val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val config = uiState.config
     val capabilityProvider = koinInject<DeviceCapabilityProvider>()
     val hasMiPackageInstaller = capabilityProvider.hasMiPackageInstaller
     val shizukuIcon = ImageVector.vectorResource(R.drawable.ic_shizuku)
 
-    return remember(error, session) {
+    return remember(error, config) {
         buildList {
             // Calculate this first so we can use it to suppress unnecessary uninstall suggestions
-            val canAllowDowngrade = session.config.authorizer == Authorizer.Root ||
-                    (session.config.authorizer == Authorizer.None && capabilityProvider.isSystemApp) ||
-                    (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE && session.config.authorizer == Authorizer.Shizuku)
+            val canAllowDowngrade = config.authorizer == Authorizer.Root ||
+                    (config.authorizer == Authorizer.None && capabilityProvider.isSystemApp) ||
+                    (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE && config.authorizer == Authorizer.Shizuku)
 
             if (error.hasErrorType(InstallErrorType.TEST_ONLY)) {
                 add(
@@ -69,7 +72,7 @@ fun rememberErrorSuggestions(
                 )
             }
 
-            val canShowProviderConflict = session.config.authorizer != Authorizer.None ||
+            val canShowProviderConflict = config.authorizer != Authorizer.None ||
                     !(DeviceConfig.currentManufacturer == Manufacturer.XIAOMI && hasMiPackageInstaller)
 
             if (canShowProviderConflict) {
@@ -125,7 +128,7 @@ fun rememberErrorSuggestions(
                             (DeviceConfig.currentManufacturer == Manufacturer.SAMSUNG || DeviceConfig.currentManufacturer == Manufacturer.REALME))
 
             // Only show keep-data uninstall if we CANNOT allow direct downgrade
-            if (!canAllowDowngrade && isAndroid14to15Downgrade && (session.config.authorizer == Authorizer.Root || session.config.authorizer == Authorizer.Shizuku)) {
+            if (!canAllowDowngrade && isAndroid14to15Downgrade && config.authorizer == Authorizer.Shizuku) {
                 if (error.hasErrorType(InstallErrorType.VERSION_DOWNGRADE)) {
                     add(
                         ErrorSuggestion(
@@ -154,15 +157,21 @@ fun rememberErrorSuggestions(
             }
 
             if (error.hasErrorType(InstallErrorType.HYPEROS_ISOLATION_VIOLATION)) {
-                if (session.config.authorizer != Authorizer.Dhizuku) {
+                if (config.authorizer != Authorizer.Dhizuku) {
                     add(
                         ErrorSuggestion(
                             labelRes = R.string.suggestion_mi_isolation,
                             descriptionRes = R.string.suggestion_mi_isolation_desc,
                             icon = AppIcons.InstallSource,
                             onClick = {
-                                session.config = session.config.copy(installer = SYSTEM_INSTALLER_PACKAGE_NAME)
-                                session.config.callingFromUid = null
+                                // Update immutable config through ViewModel
+                                viewModel.updateConfig {
+                                    it.copy(
+                                        installerMode = InstallerMode.Custom,
+                                        installer = SYSTEM_INSTALLER_PACKAGE_NAME,
+                                        callingFromUid = null
+                                    )
+                                }
                                 viewModel.dispatch(InstallerViewAction.Install(false))
                             }
                         )
@@ -174,7 +183,14 @@ fun rememberErrorSuggestions(
                             descriptionRes = R.string.suggestion_shizuku_isolation_desc,
                             icon = shizukuIcon,
                             onClick = {
-                                session.config = session.config.copy(installer = SYSTEM_INSTALLER_PACKAGE_NAME, authorizer = Authorizer.Shizuku)
+                                // Update immutable config through ViewModel
+                                viewModel.updateConfig {
+                                    it.copy(
+                                        installerMode = InstallerMode.Custom,
+                                        installer = SYSTEM_INSTALLER_PACKAGE_NAME,
+                                        authorizer = Authorizer.Shizuku
+                                    )
+                                }
                                 viewModel.dispatch(InstallerViewAction.Install(false))
                             }
                         )

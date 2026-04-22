@@ -21,6 +21,7 @@ data class ConfigModel(
     val enableCustomizePackageSource: Boolean = false,
     val packageSource: PackageSource = PackageSource.OTHER,
     val installRequester: String? = null,
+    val installerMode: InstallerMode = InstallerMode.Self,
     val installer: String?,
     val enableCustomizeUser: Boolean = false,
     val targetUserId: Int = 0,
@@ -39,27 +40,33 @@ data class ConfigModel(
     val requestUpdateOwnership: Boolean = false,
     val splitChooseAll: Boolean = false,
     val apkChooseAll: Boolean = false,
+    val requireBiometricAuth: Boolean = false,
 
     val createdAt: Long = System.currentTimeMillis(),
     val modifiedAt: Long = System.currentTimeMillis(),
 
+    // Added field to store the number of associated apps (scopes)
+    val scopeCount: Int = 0,
+
     // Runtime fields that are not saved in the database but needed for business logic
-    var installFlags: Int = 0,
-    var bypassBlacklistInstallSetByUser: Boolean = false,
-    var uninstallFlags: Int = 0,
-    var callingFromUid: Int? = null
+    val installFlags: Int = 0,
+    val bypassBlacklistInstallSetByUser: Boolean = false,
+    val uninstallFlags: Int = 0,
+    val callingFromUid: Int? = null,
+    val initiatorPackageName: String? = null
 ) {
     companion object {
         var default = ConfigModel(
             description = "",
             authorizer = Authorizer.Global,
             customizeAuthorizer = "",
-            installMode = InstallMode.Global,
+            installMode = InstallMode.Dialog,
             showToast = false,
             enableCustomizeInstallReason = false,
             installReason = InstallReason.UNKNOWN,
             enableCustomizePackageSource = false,
             packageSource = PackageSource.OTHER,
+            installerMode = InstallerMode.Self,
             installer = null,
             enableCustomizeUser = false,
             targetUserId = 0,
@@ -84,12 +91,13 @@ data class ConfigModel(
             description = "",
             authorizer = Authorizer.Global,
             customizeAuthorizer = "",
-            installMode = InstallMode.Global,
+            installMode = InstallMode.Dialog,
             showToast = false,
             enableCustomizeInstallReason = false,
             installReason = InstallReason.UNKNOWN,
             enableCustomizePackageSource = false,
             packageSource = PackageSource.OTHER,
+            installerMode = InstallerMode.Custom,
             installer = "com.android.shell",
             enableCustomizeUser = false,
             targetUserId = 0,

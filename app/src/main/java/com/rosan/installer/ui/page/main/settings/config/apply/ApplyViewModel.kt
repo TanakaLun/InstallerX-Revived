@@ -12,7 +12,7 @@ import com.rosan.installer.domain.engine.usecase.GetAppIconUseCase
 import com.rosan.installer.domain.settings.model.AppModel
 import com.rosan.installer.domain.settings.provider.SystemAppProvider
 import com.rosan.installer.domain.settings.repository.AppRepository
-import com.rosan.installer.domain.settings.repository.AppSettingsRepo
+import com.rosan.installer.domain.settings.repository.AppSettingsRepository
 import com.rosan.installer.domain.settings.repository.BooleanSetting
 import com.rosan.installer.domain.settings.repository.StringSetting
 import com.rosan.installer.domain.settings.usecase.config.ToggleAppTargetConfigUseCase
@@ -33,7 +33,7 @@ import kotlin.time.Duration.Companion.seconds
 
 class ApplyViewModel(
     private val id: Long,
-    appSettingsRepo: AppSettingsRepo,
+    appSettingsRepo: AppSettingsRepository,
     private val appRepo: AppRepository,
     private val systemAppProvider: SystemAppProvider,
     private val toggleAppTargetConfig: ToggleAppTargetConfigUseCase,
@@ -132,18 +132,16 @@ class ApplyViewModel(
     // Intermediate state to avoid exceeding combine's argument limit
     private data class UiStateData(
         val applyPrefs: ApplyPrefs,
-        val useBlur: Boolean,
         val search: String,
         val icons: Map<String, ImageBitmap?>
     )
 
     private val uiStateFlow = combine(
         applyPrefsFlow,
-        appSettingsRepo.preferencesFlow,
         _search,
         _displayIcons
-    ) { prefs, globalPrefs, search, icons ->
-        UiStateData(prefs, globalPrefs.useBlur, search, icons)
+    ) { prefs, search, icons ->
+        UiStateData(prefs, search, icons)
     }
 
     // Combine all flows to generate the final UI state
@@ -166,7 +164,6 @@ class ApplyViewModel(
             selectedFirst = uiData.applyPrefs.selectedFirst,
             showSystemApp = uiData.applyPrefs.showSystemApp,
             showPackageName = uiData.applyPrefs.showPackageName,
-            useBlur = uiData.useBlur,
             search = uiData.search
         )
     }.stateIn(

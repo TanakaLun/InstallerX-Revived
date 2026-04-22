@@ -6,8 +6,10 @@ import android.os.Build
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.kieronquinn.monetcompat.core.MonetCompat
+import com.rosan.installer.domain.settings.model.PredictiveBackAnimation
+import com.rosan.installer.domain.settings.model.PredictiveBackExitDirection
 import com.rosan.installer.domain.settings.model.ThemeState
-import com.rosan.installer.domain.settings.repository.AppSettingsRepo
+import com.rosan.installer.domain.settings.repository.AppSettingsRepository
 import com.rosan.installer.domain.settings.repository.BooleanSetting
 import com.rosan.installer.domain.settings.repository.IntSetting
 import com.rosan.installer.domain.settings.repository.StringSetting
@@ -23,8 +25,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
 
-class ThemeStateProvider(private val appSettingsRepo: AppSettingsRepo) {
-
+class ThemeStateProvider(appSettingsRepo: AppSettingsRepository) {
     val themeStateFlow: Flow<ThemeState> = combine(
         appSettingsRepo.getBoolean(BooleanSetting.UiUseMiuix, false),
         appSettingsRepo.getBoolean(BooleanSetting.UiExpressiveSwitch, true),
@@ -39,7 +40,11 @@ class ThemeStateProvider(private val appSettingsRepo: AppSettingsRepo) {
         appSettingsRepo.getBoolean(BooleanSetting.UiUseAppleFloatingBar, false),
         appSettingsRepo.getInt(IntSetting.ThemeSeedColor, PresetColors.first().color.toArgb())
             .map { Color(it) },
-        appSettingsRepo.getBoolean(BooleanSetting.UiUseBlur, true),
+        appSettingsRepo.getBoolean(BooleanSetting.UiUseBlur, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S),
+        appSettingsRepo.getString(StringSetting.PredictiveBackAnimation, PredictiveBackAnimation.Scale.value)
+            .map { PredictiveBackAnimation.entries.find { e -> e.value == it } ?: PredictiveBackAnimation.Scale },
+        appSettingsRepo.getString(StringSetting.PredictiveBackExitDirection, PredictiveBackExitDirection.ALWAYS_RIGHT.value)
+            .map { PredictiveBackExitDirection.entries.find { e -> e.value == it } ?: PredictiveBackExitDirection.ALWAYS_RIGHT },
         getWallpaperColorsFlow()
     ) { values: Array<Any?> ->
         var idx = 0
@@ -53,6 +58,8 @@ class ThemeStateProvider(private val appSettingsRepo: AppSettingsRepo) {
         val useAppleFloatingBar = values[idx++] as Boolean
         val manualSeedColor = values[idx++] as Color
         val useBlur = values[idx++] as Boolean
+        val predictiveBackAnimation = values[idx++] as PredictiveBackAnimation
+        val predictiveBackExitDirection = values[idx++] as PredictiveBackExitDirection
         @Suppress("UNCHECKED_CAST") val wallpaperColors = values[idx] as? List<Int>
 
         val effectiveSeedColor =
@@ -71,7 +78,9 @@ class ThemeStateProvider(private val appSettingsRepo: AppSettingsRepo) {
             useMiuixMonet = useMonet,
             useAppleFloatingBar = useAppleFloatingBar,
             seedColor = effectiveSeedColor,
-            useBlur = useBlur
+            useBlur = useBlur,
+            predictiveBackAnimation = predictiveBackAnimation,
+            predictiveBackExitDirection = predictiveBackExitDirection
         )
     }
 

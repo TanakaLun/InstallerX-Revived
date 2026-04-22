@@ -33,15 +33,22 @@ class AppDataStore(
         val UI_USE_APPLE_FLOATING_BAR = booleanPreferencesKey("ui_use_apple_floating_bar")
         val UI_DYN_COLOR_FOLLOW_PKG_ICON = booleanPreferencesKey("ui_dyn_color_follow_pkg_icon")
         val LIVE_ACTIVITY_DYN_COLOR_FOLLOW_PKG_ICON = booleanPreferencesKey("live_activity_dyn_color_follow_pkg_icon")
+        val PREDICTIVE_BACK_ANIMATION = stringPreferencesKey("predictive_back_animation")
+        val PREDICTIVE_BACK_EXIT_DIRECTION = stringPreferencesKey("predictive_back_exit_direction")
 
         // Show Live Activity
         val SHOW_LIVE_ACTIVITY = booleanPreferencesKey("show_live_activity")
 
         // Show Mi Island
         val SHOW_MI_ISLAND = booleanPreferencesKey("show_mi_island")
+        val SHOW_MI_ISLAND_BYPASS_RESTRICTION = booleanPreferencesKey("show_mi_island_bypass_restriction")
+        val SHOW_MI_ISLAND_OUTER_GLOW = booleanPreferencesKey("show_mi_island_outer_glow")
+
+        // The duration to keep the network blocked to bypass Xiaomi's notification scanner
+        val SHOW_MI_ISLAND_BLOCKING_INTERVAL_MS = intPreferencesKey("show_mi_island_blocking_interval")
 
         // Use Biometric Auth Install
-        val INSTALLER_REQUIRE_BIOMETRIC_AUTH = booleanPreferencesKey("installer_use_biometric_auth")
+        val INSTALLER_REQUIRE_BIOMETRIC_AUTH = stringPreferencesKey("installer_require_biometric_auth_mode")
 
         // Use Biometric Auth Uninstall
         val UNINSTALLER_REQUIRE_BIOMETRIC_AUTH = booleanPreferencesKey("uninstaller_use_biometric_auth")
@@ -62,7 +69,6 @@ class AppDataStore(
         // ConfigUtil
         val AUTHORIZER = stringPreferencesKey("authorizer")
         val CUSTOMIZE_AUTHORIZER = stringPreferencesKey("customize_authorizer")
-        val INSTALL_MODE = stringPreferencesKey("install_mode")
         val UNINSTALL_FLAGS = intPreferencesKey("uninstall_flags")
 
         // ApplyViewModel
@@ -94,25 +100,36 @@ class AppDataStore(
         // Customize Installer
         val MANAGED_INSTALLER_PACKAGES_LIST =
             stringPreferencesKey("managed_packages_list")
+        val DEFAULT_MANAGED_INSTALLER_PACKAGES = listOf(
+            NamedPackage("Google Play Store", "com.android.vending"),
+            NamedPackage("Shell", "com.android.shell")
+        )
         val MANAGED_BLACKLIST_PACKAGES_LIST =
             stringPreferencesKey("managed_blacklist_packages_list")
         val MANAGED_SHARED_USER_ID_BLACKLIST =
             stringPreferencesKey("managed_shared_user_id_blacklist")
         val MANAGED_SHARED_USER_ID_EXEMPTED_PACKAGES_LIST =
             stringPreferencesKey("managed_shared_user_id_blacklist_exempted_packages_list")
+        val ALWAYS_USE_ROOT_IN_SYSTEM =
+            booleanPreferencesKey("always_use_root_in_system")
 
         // Lab
         val LAB_ENABLE_MODULE_FLASH = booleanPreferencesKey("enable_module_flash")
         val LAB_MODULE_FLASH_SHOW_ART = booleanPreferencesKey("module_flash_show_art")
-        val LAB_MODULE_ALWAYS_ROOT = booleanPreferencesKey("module_always_root")
         val LAB_ROOT_IMPLEMENTATION = stringPreferencesKey("lab_root_implementation")
         val LAB_HTTP_PROFILE = stringPreferencesKey("lab_http_profile")
         val LAB_HTTP_SAVE_FILE = booleanPreferencesKey("lab_http_save_file")
         val LAB_SET_INSTALL_REQUESTER = booleanPreferencesKey("lab_set_install_requester")
         val LAB_TAP_ICON_TO_SHARE = booleanPreferencesKey("lab_tap_icon_to_share")
+        val LAB_SHOW_FILE_PATH = booleanPreferencesKey("lab_show_file_path")
+        val LAB_SHOW_INSTALL_INITIATOR = booleanPreferencesKey("lab_show_install_initiator")
 
         // Debug
         val ENABLE_FILE_LOGGING = booleanPreferencesKey("enable_file_logging")
+
+        // Updater
+        val GITHUB_UPDATE_CHANNEL = stringPreferencesKey("github_update_channel")
+        val CUSTOM_GITHUB_PROXY_URL = stringPreferencesKey("custom_github_proxy_url")
     }
 
     suspend fun putString(key: Preferences.Key<String>, value: String) {

@@ -32,17 +32,18 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
 import com.rosan.installer.domain.engine.exception.ModuleInstallCmdInitException
 import com.rosan.installer.domain.engine.exception.ModuleInstallException
 import com.rosan.installer.domain.engine.exception.ModuleInstallFailedIncompatibleAuthorizerException
 import com.rosan.installer.domain.engine.model.DataType
 import com.rosan.installer.domain.session.repository.InstallerSessionRepository
+import com.rosan.installer.domain.settings.model.RootMode
 import com.rosan.installer.ui.icons.AppMiuixIcons
 import com.rosan.installer.ui.page.main.installer.InstallerStage
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
-import com.rosan.installer.ui.page.main.widget.util.ToastEventCollector
+import com.rosan.installer.ui.page.main.widget.util.InstallerEventCollector
+import com.rosan.installer.ui.page.miuix.installer.components.rememberAppInfoState
 import com.rosan.installer.ui.page.miuix.installer.sheetcontent.InstallChoiceContent
 import com.rosan.installer.ui.page.miuix.installer.sheetcontent.InstallCompletedContent
 import com.rosan.installer.ui.page.miuix.installer.sheetcontent.InstallConfirmContent
@@ -61,7 +62,6 @@ import com.rosan.installer.ui.page.miuix.installer.sheetcontent.UninstallFailedC
 import com.rosan.installer.ui.page.miuix.installer.sheetcontent.UninstallPrepareContent
 import com.rosan.installer.ui.page.miuix.installer.sheetcontent.UninstallSuccessContent
 import com.rosan.installer.ui.page.miuix.installer.sheetcontent.UninstallingContent
-import com.rosan.installer.ui.page.miuix.installer.sheetcontent.rememberAppInfoState
 import com.rosan.installer.ui.page.miuix.widgets.DropdownItem
 import com.rosan.installer.ui.page.miuix.widgets.MiuixBackButton
 import com.rosan.installer.ui.theme.InstallerMiuixTheme
@@ -75,17 +75,16 @@ import com.rosan.installer.ui.util.getSupportTitle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
-import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.ListPopupDefaults
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
-import top.yukonga.miuix.kmp.extra.WindowBottomSheet
-import top.yukonga.miuix.kmp.extra.WindowListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
+import top.yukonga.miuix.kmp.window.WindowListPopup
 
 private const val SHEET_ANIMATION_DURATION = 450L
 
@@ -96,7 +95,6 @@ fun MiuixInstallerPage(
     viewModel: InstallerViewModel = koinViewModel { parametersOf(session) }
 ) {
     val context = LocalContext.current
-    val capabilityProvider = koinInject<DeviceCapabilityProvider>()
     val scope = rememberCoroutineScope()
     val showBottomSheet = remember { mutableStateOf(true) }
 
@@ -108,6 +106,7 @@ fun MiuixInstallerPage(
     val temporarySeedColor = uiState.seedColor
     val currentPackageName = uiState.currentPackageName
     val displayIcons = uiState.displayIcons
+    val error = uiState.error
 
     val globalSeedColor = InstallerTheme.seedColor
     val themeMode = InstallerTheme.themeMode
@@ -125,10 +124,11 @@ fun MiuixInstallerPage(
         } ?: globalColorScheme
     }
 
-    val sourceType = session.analysisResults.firstOrNull()?.appEntities?.firstOrNull()?.app?.sourceType ?: DataType.NONE
-    val packageName = currentPackageName ?: session.analysisResults.firstOrNull()?.packageName ?: ""
+    val analysisResults = uiState.analysisResults
+    val sourceType = analysisResults.firstOrNull()?.appEntities?.firstOrNull()?.app?.sourceType ?: DataType.NONE
+    val packageName = currentPackageName ?: analysisResults.firstOrNull()?.packageName ?: ""
     val appInfoState = rememberAppInfoState(
-        session = session,
+        analysisResults = analysisResults,
         currentPackageName = currentPackageName,
         displayIcons = displayIcons
     )
@@ -137,7 +137,7 @@ fun MiuixInstallerPage(
         viewModel.dispatch(InstallerViewAction.CollectSession(session))
     }
 
-    ToastEventCollector(viewModel)
+    InstallerEventCollector(viewModel)
 
     val sheetTitle = when (stage) {
         is InstallerStage.Preparing -> stringResource(R.string.installer_preparing)
@@ -182,8 +182,6 @@ fun MiuixInstallerPage(
         }
     }
 
-    val isMiInstallerSupported = capabilityProvider.hasMiPackageInstaller
-
     CompositionLocalProvider(
         LocalInstallerColorScheme provides activeMd3ColorScheme
     ) {
@@ -227,7 +225,18 @@ fun MiuixInstallerPage(
                                 icon = AppMiuixIcons.Close,
                                 iconTint = MiuixTheme.colorScheme.onSurface,
                                 onClick = {
-                                    viewModel.dispatch(InstallerViewAction.ApproveSession(stage.sessionId, false))
+                                    // UNCONDITIONAL EXIT:
+                                    // Start the closing animation immediately.
+                                    showBottomSheet.value = false
+
+                                    scope.launch {
+                                        // Wait for the animation to finish
+                                        delay(SHEET_ANIMATION_DURATION)
+                                        // Reject the session to clean up the system state
+                                        viewModel.dispatch(InstallerViewAction.ApproveSession(stage.sessionId, false))
+                                        // Force close the installer UI, bypassing the InstallFailed screen
+                                        viewModel.dispatch(InstallerViewAction.Close)
+                                    }
                                 }
                             )
                         }
@@ -324,6 +333,7 @@ fun MiuixInstallerPage(
                             // Only show the reboot menu when the installation is finished
                             if (stage.isFinished) {
                                 RebootListPopup(
+                                    rootMode = uiState.rootMode,
                                     onReboot = { reason ->
                                         viewModel.dispatch(InstallerViewAction.Reboot(reason))
                                     }
@@ -339,6 +349,18 @@ fun MiuixInstallerPage(
                 allowDismiss = uiState.isDismissible,
                 onDismissRequest = {
                     if (uiState.isDismissible) {
+                        // If we are in the confirmation stage and the user taps outside or swipes back
+                        if (stage is InstallerStage.InstallConfirm) {
+                            // UNCONDITIONAL EXIT
+                            showBottomSheet.value = false
+                            scope.launch {
+                                delay(SHEET_ANIMATION_DURATION)
+                                viewModel.dispatch(InstallerViewAction.ApproveSession(stage.sessionId, false))
+                                viewModel.dispatch(InstallerViewAction.Close)
+                            }
+                            return@WindowBottomSheet
+                        }
+
                         // If it is dismissible, then proceed to close the sheet.
                         showBottomSheet.value = !showBottomSheet.value
                         scope.launch {
@@ -390,21 +412,39 @@ fun MiuixInstallerPage(
                             InstallConfirmContent(
                                 viewModel = viewModel,
                                 onCancel = {
-                                    showBottomSheet.value = false
-                                    scope.launch {
-                                        delay(SHEET_ANIMATION_DURATION)
+                                    if (stage.isSelfSession) {
+                                        // INTERNAL INSTALL: Do not close the bottom sheet!
+                                        // Dispatch the rejection, backend will wait for the abort exception
+                                        // and then switch state to InstallFailed with the correct error message.
                                         viewModel.dispatch(
                                             InstallerViewAction.ApproveSession(stage.sessionId, false)
                                         )
+                                    } else {
+                                        // EXTERNAL INSTALL: Start sheet exit animation immediately.
+                                        showBottomSheet.value = false
+                                        scope.launch {
+                                            delay(SHEET_ANIMATION_DURATION)
+                                            viewModel.dispatch(
+                                                InstallerViewAction.ApproveSession(stage.sessionId, false)
+                                            )
+                                        }
                                     }
                                 },
                                 onConfirm = {
-                                    showBottomSheet.value = false
-                                    scope.launch {
-                                        delay(SHEET_ANIMATION_DURATION)
+                                    if (stage.isSelfSession) {
+                                        // INTERNAL INSTALL: Do not close the bottom sheet!
                                         viewModel.dispatch(
                                             InstallerViewAction.ApproveSession(stage.sessionId, true)
                                         )
+                                    } else {
+                                        // EXTERNAL INSTALL: Start sheet exit animation immediately.
+                                        showBottomSheet.value = false
+                                        scope.launch {
+                                            delay(SHEET_ANIMATION_DURATION)
+                                            viewModel.dispatch(
+                                                InstallerViewAction.ApproveSession(stage.sessionId, true)
+                                            )
+                                        }
                                     }
                                 }
                             )
@@ -412,7 +452,6 @@ fun MiuixInstallerPage(
 
                         is InstallerStage.InstallChoice -> {
                             InstallChoiceContent(
-                                session = session,
                                 viewModel = viewModel,
                                 onCancel = closeSheet
                             )
@@ -420,7 +459,6 @@ fun MiuixInstallerPage(
 
                         is InstallerStage.InstallExtendedMenu -> {
                             InstallExtendedMenuContent(
-                                session = session,
                                 viewModel = viewModel
                             )
                         }
@@ -456,14 +494,12 @@ fun MiuixInstallerPage(
                                 when (subState) {
                                     "settings" -> {
                                         PrepareSettingsContent(
-                                            session = session,
                                             viewModel = viewModel
                                         )
                                     }
 
                                     "permissions" -> {
                                         InstallPreparePermissionContent(
-                                            session = session,
                                             viewModel = viewModel,
                                             onBack = { viewModel.dispatch(InstallerViewAction.HideMiuixPermissionList) }
                                         )
@@ -471,13 +507,24 @@ fun MiuixInstallerPage(
 
                                     else -> { // "prepare"
                                         InstallPrepareContent(
-                                            session = session,
                                             viewModel = viewModel,
                                             appInfo = appInfoState,
                                             onCancel = closeSheet,
                                             onInstall = {
                                                 viewModel.dispatch(InstallerViewAction.Install(true))
                                                 if (settings.autoSilentInstall && !viewModel.isInstallingModule) {
+                                                    showBottomSheet.value = false
+                                                    scope.launch {
+                                                        delay(SHEET_ANIMATION_DURATION)
+                                                        viewModel.dispatch(InstallerViewAction.Background)
+                                                    }
+                                                }
+                                            },
+                                            onLongInstall = {
+                                                // Trigger install directly
+                                                viewModel.dispatch(InstallerViewAction.Install(true))
+                                                // Force background auto silent install regardless of settings
+                                                if (!viewModel.isInstallingModule) {
                                                     showBottomSheet.value = false
                                                     scope.launch {
                                                         delay(SHEET_ANIMATION_DURATION)
@@ -493,7 +540,7 @@ fun MiuixInstallerPage(
 
                         is InstallerStage.Installing -> {
                             InstallingContent(
-                                state = stage,
+                                stage = stage,
                                 appInfo = appInfoState,
                                 onButtonClick = {
                                     scope.launch {
@@ -507,7 +554,7 @@ fun MiuixInstallerPage(
                         is InstallerStage.InstallSuccess -> {
                             InstallSuccessContent(
                                 appInfo = appInfoState,
-                                session = session,
+                                viewModel = viewModel,
                                 dhizukuAutoClose = settings.autoCloseCountDown,
                                 onClose = closeSheet
                             )
@@ -521,18 +568,17 @@ fun MiuixInstallerPage(
                         }
 
                         is InstallerStage.InstallFailed -> {
-                            if (session.error is ModuleInstallFailedIncompatibleAuthorizerException ||
-                                session.error is ModuleInstallCmdInitException ||
-                                session.error is ModuleInstallException
+                            if (error is ModuleInstallFailedIncompatibleAuthorizerException ||
+                                error is ModuleInstallCmdInitException ||
+                                error is ModuleInstallException
                             )
                                 NonInstallFailedContent(
-                                    error = session.error,
+                                    error = error,
                                     onClose = closeSheet
                                 )
                             else
                                 InstallFailedContent(
                                     appInfo = appInfoState,
-                                    session = session,
                                     viewModel = viewModel,
                                     onClose = closeSheet
                                 )
@@ -564,7 +610,6 @@ fun MiuixInstallerPage(
 
                         is InstallerStage.UninstallFailed -> {
                             UninstallFailedContent(
-                                session = session,
                                 viewModel = viewModel,
                                 onClose = closeSheet
                             )
@@ -572,7 +617,7 @@ fun MiuixInstallerPage(
 
                         is InstallerStage.AnalyseFailed, is InstallerStage.ResolveFailed -> {
                             NonInstallFailedContent(
-                                error = session.error,
+                                error = error,
                                 onClose = closeSheet
                             )
                         }
@@ -598,6 +643,7 @@ fun MiuixInstallerPage(
 private fun RebootListPopup(
     modifier: Modifier = Modifier,
     alignment: PopupPositionProvider.Align = PopupPositionProvider.Align.TopEnd,
+    rootMode: RootMode,
     onReboot: (String) -> Unit
 ) {
     val showTopPopup = remember { mutableStateOf(false) }
@@ -638,6 +684,9 @@ private fun RebootListPopup(
                 )
                 if (isRebootingUserspaceSupported) {
                     options.add(1, Pair(R.string.reboot_userspace, "userspace"))
+                }
+                if (rootMode == RootMode.KernelSU) {
+                    options.add(1, Pair(R.string.reboot_soft_reboot, "ksud_soft_reboot"))
                 }
                 options
             }

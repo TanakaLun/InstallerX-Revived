@@ -25,10 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.domain.session.model.ExtendedMenuEntity
-import com.rosan.installer.domain.session.model.ExtendedMenuItemEntity
-import com.rosan.installer.domain.session.repository.InstallerSessionRepository
 import com.rosan.installer.domain.settings.model.Authorizer
+import com.rosan.installer.domain.settings.model.InstallerMode
 import com.rosan.installer.domain.settings.model.NamedPackage
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
@@ -36,6 +34,8 @@ import com.rosan.installer.ui.page.main.installer.InstallerViewAction.SetInstall
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction.SetTargetUser
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
 import com.rosan.installer.ui.page.main.installer.components.rememberInstallOptions
+import com.rosan.installer.ui.page.main.installer.dialog.ExtendedMenuEntity
+import com.rosan.installer.ui.page.main.installer.dialog.ExtendedMenuItemEntity
 import com.rosan.installer.ui.page.main.installer.dialog.inner.InstallExtendedMenuAction
 import com.rosan.installer.ui.page.miuix.widgets.MiuixSwitchWidget
 import com.rosan.installer.ui.theme.InstallerTheme
@@ -46,7 +46,7 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardColors
 import top.yukonga.miuix.kmp.basic.SpinnerEntry
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.extra.WindowSpinner
+import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -54,80 +54,78 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 @Composable
 fun InstallExtendedMenuContent(
-    session: InstallerSessionRepository,
     viewModel: InstallerViewModel
 ) {
     val isDarkMode = InstallerTheme.isDark
-    val installOptions = rememberInstallOptions(session.config.authorizer)
-
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val installFlags = uiState.installFlags
+
+    // Read state from aggregated config model
+    val installFlags = uiState.config.installFlags
+    val selectedInstallerPackageName = uiState.config.installer
+    val selectedUserId = uiState.config.targetUserId
+    val customizeUserEnabled = uiState.config.enableCustomizeUser
+    val authorizer = uiState.config.authorizer
+
     val managedPackages = uiState.managedInstallerPackages
-    val selectedInstallerPackageName = uiState.selectedInstaller
     val defaultInstallerFromSettings = uiState.defaultInstallerFromSettings
     val availableUsers = uiState.availableUsers
-    val selectedUserId = uiState.selectedUserId
 
+    val installOptions = rememberInstallOptions(authorizer)
+
+    val installerMode = uiState.config.installerMode
     val selectedInstaller = remember(selectedInstallerPackageName, managedPackages) {
         managedPackages.find { it.packageName == selectedInstallerPackageName }
     }
 
-    val customizeUserEnabled = session.config.enableCustomizeUser
-    val menuEntities = remember(installOptions, selectedInstaller, customizeUserEnabled, selectedUserId, availableUsers) {
-        buildList {
-            // Installer selection
-            if (session.config.authorizer == Authorizer.Root ||
-                session.config.authorizer == Authorizer.Shizuku
-            ) {
-                add(
-                    ExtendedMenuEntity(
-                        action = InstallExtendedMenuAction.CustomizeInstaller,
-                        menuItem = ExtendedMenuItemEntity(
-                            nameResourceId = R.string.config_installer,
-                            icon = AppIcons.InstallSource,
-                            action = null
-                        )
-                    )
-                )
-            }
-
-            // User selection
-            if ((session.config.authorizer == Authorizer.Root ||
-                        session.config.authorizer == Authorizer.Shizuku
-                        ) && customizeUserEnabled
-            ) {
-                add(
-                    ExtendedMenuEntity(
-                        action = InstallExtendedMenuAction.CustomizeUser,
-                        menuItem = ExtendedMenuItemEntity(
-                            nameResourceId = R.string.config_target_user,
-                            icon = AppIcons.InstallUser,
-                            action = null
-                        )
-                    )
-                )
-            }
-
-            // Dynamic install options
-            if (session.config.authorizer == Authorizer.Root ||
-                session.config.authorizer == Authorizer.Shizuku
-            ) {
-                installOptions.forEach { option ->
+    val menuEntities =
+        remember(installOptions, selectedInstaller, installerMode, customizeUserEnabled, selectedUserId, availableUsers, authorizer) {
+            buildList {
+                // Installer Mode selection (Always shown for Root/Shizuku)
+                if (authorizer == Authorizer.Root || authorizer == Authorizer.Shizuku) {
                     add(
                         ExtendedMenuEntity(
-                            action = InstallExtendedMenuAction.InstallOption,
+                            action = InstallExtendedMenuAction.CustomizeInstallerMode,
                             menuItem = ExtendedMenuItemEntity(
-                                nameResourceId = option.labelResource,
-                                descriptionResourceId = option.descResource,
-                                icon = null,
-                                action = option
+                                nameResourceId = R.string.config_declare_installer,
+                                icon = AppIcons.InstallSource,
+                                action = null
                             )
                         )
                     )
                 }
-            }
-        }.toMutableStateList()
-    }
+
+                // User selection
+                if ((authorizer == Authorizer.Root || authorizer == Authorizer.Shizuku) && customizeUserEnabled) {
+                    add(
+                        ExtendedMenuEntity(
+                            action = InstallExtendedMenuAction.CustomizeUser,
+                            menuItem = ExtendedMenuItemEntity(
+                                nameResourceId = R.string.config_target_user,
+                                icon = AppIcons.InstallUser,
+                                action = null
+                            )
+                        )
+                    )
+                }
+
+                // Dynamic install options
+                if (authorizer == Authorizer.Root || authorizer == Authorizer.Shizuku) {
+                    installOptions.forEach { option ->
+                        add(
+                            ExtendedMenuEntity(
+                                action = InstallExtendedMenuAction.InstallOption,
+                                menuItem = ExtendedMenuItemEntity(
+                                    nameResourceId = option.labelResource,
+                                    descriptionResourceId = option.descResource,
+                                    icon = null,
+                                    action = option
+                                )
+                            )
+                        )
+                    }
+                }
+            }.toMutableStateList()
+        }
 
     BackHandler {
         viewModel.dispatch(InstallerViewAction.InstallPrepare)
@@ -145,6 +143,7 @@ fun InstallExtendedMenuContent(
                 installFlags = installFlags,
                 managedPackages = managedPackages,
                 selectedInstallerPackageName = selectedInstallerPackageName,
+                installerMode = installerMode,
                 defaultInstallerFromSettings = defaultInstallerFromSettings,
                 availableUsers = availableUsers,
                 selectedUserId = selectedUserId
@@ -177,6 +176,7 @@ private fun ExtendedMenuLazyList(
     installFlags: Int,
     managedPackages: List<NamedPackage>,
     selectedInstallerPackageName: String?,
+    installerMode: InstallerMode,
     defaultInstallerFromSettings: String?,
     availableUsers: Map<Int, String>,
     selectedUserId: Int
@@ -215,31 +215,59 @@ private fun ExtendedMenuLazyList(
                         )
                     }
 
-                    is InstallExtendedMenuAction.CustomizeInstaller -> {
+                    is InstallExtendedMenuAction.CustomizeInstallerMode -> {
+                        val modeSelf = stringResource(R.string.config_installer_mode_self)
+                        val modeInitiator = stringResource(R.string.config_installer_mode_initiator)
                         val installerFollowSettingsText = stringResource(id = R.string.config_follow_settings)
-                        val installerEntries = remember(managedPackages, installerFollowSettingsText) {
-                            listOf(SpinnerEntry(title = installerFollowSettingsText)) +
-                                    managedPackages.map { SpinnerEntry(title = it.name) }
-                        }
-                        val selectedInstallerIndex = remember(selectedInstallerPackageName, managedPackages) {
-                            if (selectedInstallerPackageName == defaultInstallerFromSettings || selectedInstallerPackageName == null) {
-                                0 // "Follow Settings" is at index 0
-                            } else {
-                                managedPackages.indexOfFirst { it.packageName == selectedInstallerPackageName } + 1 // Offset by 1 for "Follow Settings"
-                            }
-                        }.coerceAtLeast(0) // Ensure index is not -1
 
-                        WindowSpinner(
-                            title = stringResource(R.string.config_installer),
-                            items = installerEntries,
-                            selectedIndex = selectedInstallerIndex,
-                            onSelectedIndexChange = { newIndex ->
-                                val selectedPackageName = if (newIndex == 0) {
-                                    defaultInstallerFromSettings // Select "Follow Settings" -> use default value
-                                } else {
-                                    managedPackages.getOrNull(newIndex - 1)?.packageName
+                        val unifiedEntries = remember(modeSelf, modeInitiator, installerFollowSettingsText, managedPackages) {
+                            val list = mutableListOf(
+                                SpinnerEntry(title = modeSelf),
+                                SpinnerEntry(title = modeInitiator),
+                                SpinnerEntry(title = installerFollowSettingsText)
+                            )
+                            managedPackages.forEach { pkg ->
+                                list.add(SpinnerEntry(title = pkg.name))
+                            }
+                            list
+                        }
+
+                        val selectedUnifiedIndex =
+                            remember(installerMode, selectedInstallerPackageName, defaultInstallerFromSettings, managedPackages) {
+                                when (installerMode) {
+                                    InstallerMode.Self -> 0
+                                    InstallerMode.Initiator -> 1
+                                    InstallerMode.Custom -> {
+                                        if (selectedInstallerPackageName == defaultInstallerFromSettings || selectedInstallerPackageName == null) {
+                                            2 // Follow Profile
+                                        } else {
+                                            val pkgIndex = managedPackages.indexOfFirst { it.packageName == selectedInstallerPackageName }
+                                            if (pkgIndex != -1) 3 + pkgIndex else 2
+                                        }
+                                    }
                                 }
-                                viewModel.dispatch(SetInstaller(selectedPackageName))
+                            }
+
+                        WindowSpinnerPreference(
+                            title = stringResource(R.string.config_declare_installer),
+                            items = unifiedEntries,
+                            selectedIndex = selectedUnifiedIndex,
+                            onSelectedIndexChange = { newIndex ->
+                                when (newIndex) {
+                                    0 -> viewModel.dispatch(InstallerViewAction.SetInstallerMode(InstallerMode.Self))
+                                    1 -> viewModel.dispatch(InstallerViewAction.SetInstallerMode(InstallerMode.Initiator))
+                                    2 -> {
+                                        viewModel.dispatch(InstallerViewAction.SetInstallerMode(InstallerMode.Custom))
+                                        viewModel.dispatch(SetInstaller(defaultInstallerFromSettings))
+                                    }
+
+                                    else -> {
+                                        viewModel.dispatch(InstallerViewAction.SetInstallerMode(InstallerMode.Custom))
+                                        managedPackages.getOrNull(newIndex - 3)?.let {
+                                            viewModel.dispatch(SetInstaller(it.packageName))
+                                        }
+                                    }
+                                }
                             }
                         )
                     }
@@ -258,7 +286,7 @@ private fun ExtendedMenuLazyList(
                             userKeysSorted.indexOf(selectedUserId).coerceAtLeast(0)
                         }
 
-                        WindowSpinner(
+                        WindowSpinnerPreference(
                             title = stringResource(R.string.config_target_user),
                             items = userEntries,
                             selectedIndex = selectedUserIndex,

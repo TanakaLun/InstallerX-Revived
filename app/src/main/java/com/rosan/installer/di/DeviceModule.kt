@@ -3,14 +3,21 @@
 package com.rosan.installer.di
 
 import com.rosan.installer.data.device.provider.AndroidPermissionChecker
+import com.rosan.installer.data.device.provider.AppInfoProviderImpl
 import com.rosan.installer.data.device.provider.DeviceCapabilityProviderImpl
+import com.rosan.installer.domain.device.provider.AppInfoProvider
 import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
 import com.rosan.installer.domain.device.provider.PermissionChecker
 import org.koin.core.module.dsl.bind
+import org.koin.core.module.dsl.createdAtStart
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 
 val deviceModule = module {
     singleOf(::AndroidPermissionChecker) { bind<PermissionChecker>() }
-    singleOf(::DeviceCapabilityProviderImpl) { bind<DeviceCapabilityProvider>() }
+    singleOf(::AppInfoProviderImpl) { bind<AppInfoProvider>() }
+    singleOf(::DeviceCapabilityProviderImpl) {
+        bind<DeviceCapabilityProvider>()
+        createdAtStart()
+    }
 }

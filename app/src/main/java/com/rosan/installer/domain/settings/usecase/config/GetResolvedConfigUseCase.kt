@@ -6,11 +6,10 @@ import android.content.Context
 import com.rosan.installer.domain.settings.model.AppModel
 import com.rosan.installer.domain.settings.model.Authorizer
 import com.rosan.installer.domain.settings.model.ConfigModel
-import com.rosan.installer.domain.settings.model.InstallMode
 import com.rosan.installer.domain.settings.repository.AppRepository
-import com.rosan.installer.domain.settings.repository.AppSettingsRepo
+import com.rosan.installer.domain.settings.repository.AppSettingsRepository
 import com.rosan.installer.domain.settings.repository.BooleanSetting
-import com.rosan.installer.domain.settings.repository.ConfigRepo
+import com.rosan.installer.domain.settings.repository.ConfigRepository
 import com.rosan.installer.domain.settings.repository.IntSetting
 import com.rosan.installer.domain.settings.repository.StringSetting
 import kotlinx.coroutines.Dispatchers
@@ -19,14 +18,13 @@ import kotlinx.coroutines.withContext
 
 class GetResolvedConfigUseCase(
     private val context: Context,
-    private val appSettingsRepo: AppSettingsRepo,
-    private val configRepo: ConfigRepo,
-    private val appRepository: AppRepository
+    private val appSettingsRepo: AppSettingsRepository,
+    private val configRepo: ConfigRepository,
+    private val appRepo: AppRepository
 ) {
     suspend operator fun invoke(packageName: String? = null): ConfigModel = withContext(Dispatchers.IO) {
         var model = getByPackageNameInner(packageName)
 
-        // Handle Global overrides
         if (model.authorizer == Authorizer.Global) {
             val globalAuthorizer = getGlobalAuthorizer()
             model = model.copy(
@@ -35,13 +33,11 @@ class GetResolvedConfigUseCase(
             )
         }
 
-        if (model.installMode == InstallMode.Global) {
-            val globalInstallMode = getGlobalInstallMode()
-            model = model.copy(installMode = globalInstallMode)
-        }
+        // Always store the initiator package name so it is available if the user switches to Initiator mode in the UI later.
+        model = model.copy(initiatorPackageName = packageName)
 
-        // Apply runtime properties
-        model.uninstallFlags = appSettingsRepo.getInt(IntSetting.UninstallFlags, 0).first()
+        val currentUninstallFlags = appSettingsRepo.getInt(IntSetting.UninstallFlags, 0).first()
+        model = model.copy(uninstallFlags = currentUninstallFlags)
 
         val isRequesterEnabled = appSettingsRepo.getBoolean(BooleanSetting.LabSetInstallRequester).first()
         if (isRequesterEnabled) {
@@ -52,7 +48,7 @@ class GetResolvedConfigUseCase(
             if (targetUid == null && packageName != null) {
                 targetUid = runCatching { context.packageManager.getPackageUid(packageName, 0) }.getOrNull()
             }
-            model.callingFromUid = targetUid
+            model = model.copy(callingFromUid = targetUid)
         }
 
         return@withContext model
@@ -60,7 +56,7 @@ class GetResolvedConfigUseCase(
 
     private suspend fun getByPackageNameInner(packageName: String?): ConfigModel {
         val app = getAppByPackageName(packageName)
-        var config: ConfigModel? = null
+        var config: ConfigModel?
 
         if (app != null) {
             config = configRepo.find(app.configId)
@@ -76,15 +72,13 @@ class GetResolvedConfigUseCase(
     }
 
     private suspend fun getAppByPackageName(packageName: String?): AppModel? {
-        var app = appRepository.findByPackageName(packageName)
+        var app = appRepo.findByPackageName(packageName)
         if (app != null) return app
-        if (packageName != null) app = appRepository.findByPackageName(null)
+        if (packageName != null) app = appRepo.findByPackageName(null)
         return app
     }
 
     private suspend fun getGlobalAuthorizer() = appSettingsRepo.preferencesFlow.first().authorizer
 
     private suspend fun getGlobalCustomizeAuthorizer() = appSettingsRepo.getString(StringSetting.CustomizeAuthorizer, "").first()
-
-    private suspend fun getGlobalInstallMode() = appSettingsRepo.preferencesFlow.first().installMode
 }

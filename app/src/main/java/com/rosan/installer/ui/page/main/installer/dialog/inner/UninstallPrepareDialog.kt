@@ -22,9 +22,11 @@ import com.rosan.installer.data.engine.executor.PackageManagerUtil
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
+import com.rosan.installer.ui.page.main.installer.dialog.DialogButton
 import com.rosan.installer.ui.page.main.installer.dialog.DialogInnerParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParamsType
+import com.rosan.installer.ui.page.main.installer.dialog.dialogButtons
 import com.rosan.installer.ui.page.main.widget.chip.Chip
 import com.rosan.installer.util.hasFlag
 
@@ -46,7 +48,7 @@ fun uninstallReadyDialog(
     )
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val uninstallFlags = uiState.uninstallFlags
+    val uninstallFlags = uiState.config.uninstallFlags
 
     val deleteKeepData = uninstallFlags.hasFlag(PackageManagerUtil.DELETE_KEEP_DATA)
     val deleteAllUsers = uninstallFlags.hasFlag(PackageManagerUtil.DELETE_ALL_USERS)
