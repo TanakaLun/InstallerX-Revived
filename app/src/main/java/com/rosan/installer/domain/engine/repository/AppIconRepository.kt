@@ -4,7 +4,7 @@ package com.rosan.installer.domain.engine.repository
 
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
-import com.rosan.installer.domain.engine.model.AppEntity
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
 import com.rosan.installer.domain.engine.repository.AppIconRepository.Companion.SETTINGS_APP_LIST
 
 /**
@@ -77,7 +77,7 @@ interface AppIconRepository {
      *
      * @param sessionId        Cache grouping key.
      * @param packageName      The application's package name.
-     * @param entityToInstall  The parsed APK entity, or null.
+     * @param entityToInstall  The parsed [AppEntity], or null.
      * @param preferSystemIcon Whether to prefer the system-themed icon.
      * @param userId           Android user ID; defaults to the current process
      *                         user if null.
@@ -86,10 +86,19 @@ interface AppIconRepository {
     suspend fun extractColorFromApp(
         sessionId: String,
         packageName: String,
-        entityToInstall: AppEntity.BaseEntity?,
+        entityToInstall: AppEntity?,
         preferSystemIcon: Boolean,
         userId: Int? = null
     ): Int?
+
+    /**
+     * Extracts the Material 3 seed color directly from an existing [Bitmap].
+     *
+     * @param bitmap The bitmap to extract color from, or null.
+     * @return The dominant seed color as an ARGB int, or null if [bitmap]
+     *         is null or extraction fails.
+     */
+    suspend fun extractColorFromBitmap(bitmap: Bitmap?): Int?
 
     /**
      * Extracts the Material 3 seed color directly from an existing [Drawable].

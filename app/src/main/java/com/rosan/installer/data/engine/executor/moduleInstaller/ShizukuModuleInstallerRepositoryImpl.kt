@@ -2,14 +2,14 @@ package com.rosan.installer.data.engine.executor.moduleInstaller
 
 import com.rosan.installer.ICommandOutputListener
 import com.rosan.installer.data.engine.executor.ModuleInstallerUtils
-import com.rosan.installer.data.privileged.util.useUserService
+import com.rosan.installer.framework.privileged.util.useUserService
 import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
-import com.rosan.installer.domain.engine.exception.ModuleInstallCmdInitException
-import com.rosan.installer.domain.engine.exception.ModuleInstallExitCodeNonZeroException
-import com.rosan.installer.domain.engine.model.AppEntity
+import com.rosan.installer.domain.engine.exception.ModuleInstallException
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.error.ModuleInstallErrorType
 import com.rosan.installer.domain.engine.repository.ModuleInstallerRepository
-import com.rosan.installer.domain.settings.model.ConfigModel
-import com.rosan.installer.domain.settings.model.RootMode
+import com.rosan.installer.domain.settings.model.config.ConfigModel
+import com.rosan.installer.domain.settings.model.preferences.RootMode
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -49,7 +49,12 @@ class ShizukuModuleInstallerRepositoryImpl(
                 if (exitCode == 0) {
                     close()
                 } else {
-                    close(ModuleInstallExitCodeNonZeroException("Remote command failed with exit code $exitCode"))
+                    close(
+                        ModuleInstallException(
+                            errorType = ModuleInstallErrorType.EXIT_CODE_NON_ZERO,
+                            message = "Remote command failed with exit code $exitCode"
+                        )
+                    )
                 }
             }
         }
@@ -57,14 +62,19 @@ class ShizukuModuleInstallerRepositoryImpl(
         try {
             useUserService(
                 isSystemApp = capabilityProvider.isSystemApp,
-                authorizer = config.authorizer,
-                useHookMode = false
+                authorizer = config.authorizer
             ) { userService ->
                 userService.privileged.execArrWithCallback(command, listener)
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to initiate remote module installation.")
-            close(ModuleInstallCmdInitException("Failed to initiate remote command: ${e.message}", e))
+            close(
+                ModuleInstallException(
+                    errorType = ModuleInstallErrorType.CMD_INIT_FAILED,
+                    message = "Failed to initiate remote command: ${e.message}",
+                    cause = e
+                )
+            )
         }
 
         awaitClose {

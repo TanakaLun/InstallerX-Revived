@@ -20,18 +20,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
 import com.rosan.installer.ui.page.main.installer.InstallerStage
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
+import com.rosan.installer.ui.page.miuix.widgets.ProgressButton
+import com.rosan.installer.ui.page.miuix.widgets.ProgressButtonDefaults
 import com.rosan.installer.ui.util.isGestureNavigation
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.patched.ProgressButton
-import top.yukonga.miuix.kmp.basic.patched.ProgressButtonDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
 
 @Composable
 fun InstallPreparingContent(
     viewModel: InstallerViewModel,
-    onCancel: () -> Unit
+    onBackground: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val stage = uiState.stage
@@ -77,7 +77,7 @@ fun InstallPreparingContent(
 
         ProgressButton(
             progress = animatedProgress,
-            onClick = onCancel,
+            onClick = onBackground,
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)

@@ -129,8 +129,26 @@ fun MiuixDialogSettingsPage(
                     )
 
                     MiuixSwitchWidget(
-                        title = stringResource(id = R.string.auto_silent_install),
-                        description = stringResource(id = R.string.auto_silent_install_desc),
+                        title = stringResource(id = R.string.disable_notification_on_dismiss),
+                        description = stringResource(id = R.string.close_notification_immediately_on_dialog_dismiss),
+                        checked = uiState.disableNotificationForDialogInstall,
+                        onCheckedChange = {
+                            viewModel.dispatch(DialogSettingsAction.ChangeShowDisableNotification(it))
+                        }
+                    )
+                }
+            }
+
+            item { SmallTitle(stringResource(id = R.string.installer_settings_dialog_automation_options)) }
+            item {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp)
+                ) {
+                    MiuixSwitchWidget(
+                        title = stringResource(id = R.string.auto_background_install),
+                        description = stringResource(id = R.string.auto_background_install_desc),
                         checked = uiState.autoSilentInstall,
                         onCheckedChange = {
                             viewModel.dispatch(DialogSettingsAction.ChangeAutoSilentInstall(it))
@@ -138,12 +156,40 @@ fun MiuixDialogSettingsPage(
                     )
 
                     MiuixSwitchWidget(
-                        title = stringResource(id = R.string.disable_notification_on_dismiss),
-                        description = stringResource(id = R.string.close_notification_immediately_on_dialog_dismiss),
-                        checked = uiState.disableNotificationForDialogInstall,
+                        title = stringResource(id = R.string.long_click_background_install),
+                        description = stringResource(id = R.string.long_click_background_install_desc),
+                        checked = uiState.longClickBackgroundInstall,
                         onCheckedChange = {
-                            viewModel.dispatch(DialogSettingsAction.ChangeShowDisableNotification(it))
+                            viewModel.dispatch(DialogSettingsAction.ChangeLongClickBackgroundInstall(it))
                         }
+                    )
+                }
+            }
+
+            item { SmallTitle(stringResource(R.string.extras)) }
+            item {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp)
+                ) {
+                    MiuixSwitchWidget(
+                        title = stringResource(R.string.lab_tap_icon_to_share),
+                        description = stringResource(R.string.lab_tap_icon_to_share_desc),
+                        checked = uiState.tapIconToShare,
+                        onCheckedChange = { viewModel.dispatch(DialogSettingsAction.ChangeTapIconToShare(it)) }
+                    )
+                    MiuixSwitchWidget(
+                        title = stringResource(R.string.lab_show_apk_path),
+                        description = stringResource(R.string.lab_show_apk_path_desc),
+                        checked = uiState.showFilePath,
+                        onCheckedChange = { viewModel.dispatch(DialogSettingsAction.ChangeShowFilePath(it)) }
+                    )
+                    MiuixSwitchWidget(
+                        title = stringResource(R.string.lab_show_install_initiator),
+                        description = stringResource(R.string.lab_show_install_initiator_desc),
+                        checked = uiState.showInstallInitiator,
+                        onCheckedChange = { viewModel.dispatch(DialogSettingsAction.ChangeShowInstallInitiator(it)) }
                     )
                 }
             }

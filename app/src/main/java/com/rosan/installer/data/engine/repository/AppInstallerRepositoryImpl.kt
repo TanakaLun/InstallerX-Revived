@@ -9,13 +9,14 @@ import com.rosan.installer.data.engine.executor.appInstaller.NoneAppInstallerRep
 import com.rosan.installer.data.engine.executor.appInstaller.ProcessAppInstallerRepoImpl
 import com.rosan.installer.data.engine.executor.appInstaller.ShizukuAppInstallerRepoImpl
 import com.rosan.installer.data.engine.executor.appInstaller.SystemAppInstallerRepoImpl
-import com.rosan.installer.data.privileged.exception.ShizukuNotWorkException
 import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
-import com.rosan.installer.domain.engine.model.InstallEntity
+import com.rosan.installer.domain.engine.model.install.InstallEntity
 import com.rosan.installer.domain.engine.repository.AppInstallerRepository
+import com.rosan.installer.domain.privileged.exception.PrivilegedException
+import com.rosan.installer.domain.privileged.model.PrivilegedErrorType
 import com.rosan.installer.domain.privileged.provider.PostInstallTaskProvider
-import com.rosan.installer.domain.settings.model.Authorizer
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.domain.settings.model.config.Authorizer
+import com.rosan.installer.domain.settings.model.config.ConfigModel
 
 class AppInstallerRepositoryImpl(
     private val context: Context,
@@ -23,6 +24,11 @@ class AppInstallerRepositoryImpl(
     private val deviceCapabilityProvider: DeviceCapabilityProvider,
     private val postInstallTaskProvider: PostInstallTaskProvider
 ) : AppInstallerRepository {
+    override suspend fun resolveInstallerPackageName(config: ConfigModel): String? =
+        executeWithRepo(config) { repo ->
+            repo.resolveInstallerPackageName(config)
+        }
+
     override suspend fun doInstallWork(
         config: ConfigModel,
         entities: List<InstallEntity>,
@@ -66,12 +72,34 @@ class AppInstallerRepositoryImpl(
         try {
             return action(repo)
         } catch (e: IllegalStateException) {
-            // Check if Shizuku service connection is lost
-            if (repo is ShizukuAppInstallerRepoImpl && e.message?.contains("binder haven't been received") == true) {
-                throw ShizukuNotWorkException("Shizuku service connection lost during operation.", e)
+            throw when (repo) {
+                is ShizukuAppInstallerRepoImpl if e.message?.contains("binder haven't been received") == true ->
+                    PrivilegedException(
+                        errorType = PrivilegedErrorType.SHIZUKU_NOT_WORK,
+                        message = "Shizuku service connection lost during operation.",
+                        cause = e
+                    )
+
+                is DhizukuAppInstallerRepoImpl if e.message?.contains("KoinApplication has not been started") == true ->
+                    PrivilegedException(
+                        errorType = PrivilegedErrorType.DHIZUKU_NOT_WORK,
+                        message = "Dhizuku service connection lost during operation.",
+                        cause = e
+                    )
+
+                is ProcessAppInstallerRepoImpl if e.message?.contains("Failed to initialize AppProcess for Hook Mode") == true ->
+                    PrivilegedException(
+                        errorType = if (config.authorizer == Authorizer.Root) {
+                            PrivilegedErrorType.ROOT_NOT_WORK
+                        } else {
+                            PrivilegedErrorType.APP_PROCESS_NOT_WORK
+                        },
+                        message = "AppProcess hook initialization failed during operation.",
+                        cause = e
+                    )
+
+                else -> e
             }
-            // Throw other exceptions as-is
-            throw e
         }
     }
 

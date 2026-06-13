@@ -6,15 +6,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rosan.installer.R
 import com.rosan.installer.domain.privileged.usecase.GetAvailableUsersUseCase
-import com.rosan.installer.domain.settings.model.Authorizer
-import com.rosan.installer.domain.settings.model.ConfigModel
-import com.rosan.installer.domain.settings.model.DexoptMode
-import com.rosan.installer.domain.settings.model.InstallMode
-import com.rosan.installer.domain.settings.model.InstallReason
-import com.rosan.installer.domain.settings.model.InstallerMode
-import com.rosan.installer.domain.settings.model.PackageSource
+import com.rosan.installer.domain.settings.model.config.Authorizer
+import com.rosan.installer.domain.settings.model.config.ConfigModel
+import com.rosan.installer.domain.settings.model.config.DexoptMode
+import com.rosan.installer.domain.settings.model.config.InstallRequesterMode
+import com.rosan.installer.domain.settings.model.config.InstallMode
+import com.rosan.installer.domain.settings.model.config.InstallReason
+import com.rosan.installer.domain.settings.model.config.InstallerMode
+import com.rosan.installer.domain.settings.model.config.PackageSource
+import com.rosan.installer.domain.settings.model.config.ToastMode
 import com.rosan.installer.domain.settings.repository.AppSettingsRepository
-import com.rosan.installer.domain.settings.repository.BooleanSetting
 import com.rosan.installer.domain.settings.repository.NamedPackageListSetting
 import com.rosan.installer.domain.settings.usecase.config.GetConfigDraftUseCase
 import com.rosan.installer.domain.settings.usecase.config.SaveConfigUseCase
@@ -56,17 +57,15 @@ class EditViewModel(
         combine(
             appSettingsRepo.preferencesFlow,
             appSettingsRepo.getNamedPackageList(NamedPackageListSetting.ManagedInstallerPackages),
-            appSettingsRepo.getBoolean(BooleanSetting.LabSetInstallRequester),
-            ::Triple
+            ::Pair
         )
     ) { data, originalData, availableUsers, settings ->
-        val (prefs, managedInstallerPackages, isCustomInstallRequesterEnabled) = settings
+        val (prefs, managedInstallerPackages) = settings
         EditViewState(
             data = data,
             originalData = originalData,
             availableUsers = availableUsers,
             managedInstallerPackages = managedInstallerPackages,
-            isCustomInstallRequesterEnabled = isCustomInstallRequesterEnabled,
             globalAuthorizer = prefs.authorizer,
             globalInstallerBiometricAuthMode = prefs.installerRequireBiometricAuth
         )
@@ -93,12 +92,12 @@ class EditViewModel(
                     is EditViewAction.ChangeDataAuthorizer -> changeDataAuthorizer(action.authorizer)
                     is EditViewAction.ChangeDataCustomizeAuthorizer -> changeDataCustomizeAuthorizer(action.customizeAuthorizer)
                     is EditViewAction.ChangeDataInstallMode -> changeDataInstallMode(action.installMode)
-                    is EditViewAction.ChangeDataShowToast -> changeDataShowToast(action.showToast)
+                    is EditViewAction.ChangeDataToastMode -> changeDataToastMode(action.toastMode)
                     is EditViewAction.ChangeDataEnableCustomizePackageSource -> changeDataEnableCustomPackageSource(action.enable)
                     is EditViewAction.ChangeDataPackageSource -> changeDataPackageSource(action.packageSource)
                     is EditViewAction.ChangeDataEnableCustomizeInstallReason -> changeDataEnableCustomInstallReason(action.enable)
                     is EditViewAction.ChangeDataInstallReason -> changeDataInstallReason(action.installReason)
-                    is EditViewAction.ChangeDataEnableCustomizeInstallRequester -> changeDataEnableCustomInstallRequester(action.enable)
+                    is EditViewAction.ChangeDataInstallRequesterMode -> changeDataInstallRequesterMode(action.mode)
                     is EditViewAction.ChangeDataInstallRequester -> changeDataInstallRequester(action.packageName)
                     is EditViewAction.ChangeDataInstallerMode -> changeDataInstallerMode(action.installerMode)
                     is EditViewAction.ChangeDataInstaller -> changeDataInstaller(action.installer)
@@ -115,6 +114,8 @@ class EditViewModel(
                     is EditViewAction.ChangeDataAllowTestOnly -> changeDataAllowTestOnly(action.allowTestOnly)
                     is EditViewAction.ChangeDataAllowDowngrade -> changeDataAllowDowngrade(action.allowDowngrade)
                     is EditViewAction.ChangeDataBypassLowTargetSdk -> changeDataBypassLowTargetSdk(action.bypassLowTargetSdk)
+                    is EditViewAction.ChangeDataAllowSigMismatch -> changeDataAllowSigMismatch(action.allowSigMismatch)
+                    is EditViewAction.ChangeDataAllowSigUnknown -> changeDataAllowSigUnknown(action.allowSigUnknown)
                     is EditViewAction.ChangeDataAllowAllRequestedPermissions -> changeDataAllowAllRequestedPermissions(action.allowAllRequestedPermissions)
                     is EditViewAction.ChangeDataRequestUpdateOwnership -> changeDataRequestUpdateOwnership(action.requestUpdateOwnership)
                     is EditViewAction.ChangeSplitChooseAll -> changeSplitChooseAll(action.splitChooseAll)
@@ -176,8 +177,8 @@ class EditViewModel(
         _data.update { it.copy(installMode = installMode) }
     }
 
-    private fun changeDataShowToast(showToast: Boolean) {
-        _data.update { it.copy(showToast = showToast) }
+    private fun changeDataToastMode(toastMode: ToastMode) {
+        _data.update { it.copy(toastMode = toastMode) }
     }
 
     private fun changeDataEnableCustomInstallReason(enable: Boolean) {
@@ -196,9 +197,14 @@ class EditViewModel(
         _data.update { it.copy(packageSource = packageSource) }
     }
 
-    private fun changeDataEnableCustomInstallRequester(enable: Boolean) {
-        _data.update { it.copy(enableCustomizeInstallRequester = enable) }
-        if (enable) {
+    private fun changeDataInstallRequesterMode(mode: InstallRequesterMode) {
+        _data.update {
+            it.copy(
+                installRequesterMode = mode,
+                installRequesterUid = if (mode == InstallRequesterMode.Custom) it.installRequesterUid else null
+            )
+        }
+        if (mode == InstallRequesterMode.Custom) {
             changeDataInstallRequester(_data.value.installRequester)
         }
     }
@@ -290,6 +296,14 @@ class EditViewModel(
 
     private fun changeDataBypassLowTargetSdk(bypassLowTargetSdk: Boolean) {
         _data.update { it.copy(bypassLowTargetSdk = bypassLowTargetSdk) }
+    }
+
+    private fun changeDataAllowSigMismatch(allow: Boolean) {
+        _data.update { it.copy(allowSigMismatch = allow) }
+    }
+
+    private fun changeDataAllowSigUnknown(allow: Boolean) {
+        _data.update { it.copy(allowSigUnknown = allow) }
     }
 
     private fun changeDataAllowAllRequestedPermissions(allowAllRequestedPermissions: Boolean) {

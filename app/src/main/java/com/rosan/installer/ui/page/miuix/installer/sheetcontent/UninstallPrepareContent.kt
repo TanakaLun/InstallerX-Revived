@@ -15,24 +15,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.data.engine.executor.PackageManagerUtil
+import com.rosan.installer.domain.engine.model.install.UninstallFlags
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
 import com.rosan.installer.ui.page.miuix.installer.components.AppInfoSlot
 import com.rosan.installer.ui.page.miuix.installer.components.AppInfoState
 import com.rosan.installer.ui.page.miuix.widgets.MiuixCheckboxWidget
-import com.rosan.installer.ui.theme.InstallerTheme
-import com.rosan.installer.ui.theme.miuixSheetCardColorDark
+import com.rosan.installer.ui.theme.miuixSheetCardColors
 import com.rosan.installer.ui.util.isGestureNavigation
-import com.rosan.installer.util.hasFlag
+import com.rosan.installer.core.bitmask.hasFlag
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardColors
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
@@ -43,14 +40,13 @@ fun UninstallPrepareContent(
     onCancel: () -> Unit,
     onUninstall: () -> Unit
 ) {
-    val isDarkMode = InstallerTheme.isDark
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val info = uiState.uiUninstallInfo ?: return
     val uninstallFlags = uiState.config.uninstallFlags
 
-    val deleteKeepData = uninstallFlags.hasFlag(PackageManagerUtil.DELETE_KEEP_DATA)
-    val deleteAllUsers = uninstallFlags.hasFlag(PackageManagerUtil.DELETE_ALL_USERS)
-    val deleteSystemApp = uninstallFlags.hasFlag(PackageManagerUtil.DELETE_SYSTEM_APP)
+    val deleteKeepData = uninstallFlags.hasFlag(UninstallFlags.DELETE_KEEP_DATA)
+    val deleteAllUsers = uninstallFlags.hasFlag(UninstallFlags.DELETE_ALL_USERS)
+    val deleteSystemApp = uninstallFlags.hasFlag(UninstallFlags.DELETE_SYSTEM_APP)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -69,11 +65,7 @@ fun UninstallPrepareContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
-            colors = CardColors(
-                color = if (isDynamicColor) MiuixTheme.colorScheme.surfaceContainer else
-                    if (isDarkMode) miuixSheetCardColorDark else Color.White,
-                contentColor = MiuixTheme.colorScheme.onSurface
-            )
+            colors = miuixSheetCardColors()
         ) {
             MiuixCheckboxWidget(
                 title = stringResource(id = R.string.uninstall_keep_data),
@@ -82,7 +74,7 @@ fun UninstallPrepareContent(
                 onCheckedChange = { isChecked ->
                     viewModel.dispatch(
                         InstallerViewAction.ToggleUninstallFlag(
-                            flag = PackageManagerUtil.DELETE_KEEP_DATA,
+                            flag = UninstallFlags.DELETE_KEEP_DATA,
                             enable = isChecked
                         )
                     )
@@ -96,7 +88,7 @@ fun UninstallPrepareContent(
                 onCheckedChange = { isChecked ->
                     viewModel.dispatch(
                         InstallerViewAction.ToggleUninstallFlag(
-                            flag = PackageManagerUtil.DELETE_ALL_USERS,
+                            flag = UninstallFlags.DELETE_ALL_USERS,
                             enable = isChecked
                         )
                     )
@@ -110,7 +102,7 @@ fun UninstallPrepareContent(
                 onCheckedChange = { isChecked ->
                     viewModel.dispatch(
                         InstallerViewAction.ToggleUninstallFlag(
-                            flag = PackageManagerUtil.DELETE_SYSTEM_APP,
+                            flag = UninstallFlags.DELETE_SYSTEM_APP,
                             enable = isChecked
                         )
                     )

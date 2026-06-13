@@ -28,8 +28,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.rosan.installer.R
-import com.rosan.installer.domain.settings.model.GithubUpdateChannel
-import com.rosan.installer.domain.settings.model.RootMode
+import com.rosan.installer.domain.settings.model.preferences.GithubUpdateChannel
+import com.rosan.installer.domain.settings.model.preferences.RootMode
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -41,6 +41,7 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.icon.extended.Close
+import top.yukonga.miuix.kmp.theme.LocalDismissState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
@@ -254,20 +255,26 @@ fun ErrorDisplaySheet(
     showState: MutableState<Boolean>,
     exception: Throwable,
     onDismissRequest: () -> Unit,
+    onDismissFinished: (() -> Unit)? = null,
     onRetry: (() -> Unit)? = null,
     title: String
 ) {
     WindowBottomSheet(
         show = showState.value,
         onDismissRequest = onDismissRequest,
+        onDismissFinished = onDismissFinished,
         title = title,
         startAction = {
+            val dismissState = LocalDismissState.current
             MiuixBackButton(
                 icon = MiuixIcons.Regular.Close,
-                onClick = onDismissRequest
+                onClick = { dismissState?.invoke() ?: onDismissRequest() }
             )
         }
     ) {
+        val dismissState = LocalDismissState.current
+        val dismissSheet = { dismissState?.invoke() ?: onDismissRequest() }
+
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -290,7 +297,7 @@ fun ErrorDisplaySheet(
                 if (onRetry != null) {
                     TextButton(
                         text = stringResource(R.string.cancel),
-                        onClick = onDismissRequest,
+                        onClick = dismissSheet,
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(
@@ -301,7 +308,7 @@ fun ErrorDisplaySheet(
                 } else {
                     TextButton(
                         text = stringResource(R.string.close),
-                        onClick = onDismissRequest,
+                        onClick = dismissSheet,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

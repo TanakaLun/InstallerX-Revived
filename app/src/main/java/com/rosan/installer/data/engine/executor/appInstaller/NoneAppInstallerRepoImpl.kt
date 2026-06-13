@@ -6,20 +6,21 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.os.Build
 import android.provider.Settings
 import androidx.core.net.toUri
 import com.rosan.installer.core.reflection.ReflectionProvider
 import com.rosan.installer.data.engine.executor.PackageManagerUtil
 import com.rosan.installer.domain.engine.exception.InstallException
-import com.rosan.installer.domain.engine.model.DataType
-import com.rosan.installer.domain.engine.model.InstallEntity
-import com.rosan.installer.domain.engine.model.InstallErrorType
-import com.rosan.installer.domain.engine.model.sourcePath
+import com.rosan.installer.domain.engine.model.source.DataType
+import com.rosan.installer.domain.engine.model.install.InstallEntity
+import com.rosan.installer.domain.engine.model.error.InstallErrorType
+import com.rosan.installer.domain.engine.model.install.sourcePath
 import com.rosan.installer.domain.engine.repository.AppInstallerRepository
 import com.rosan.installer.domain.privileged.model.PostInstallTaskInfo
 import com.rosan.installer.domain.privileged.provider.PostInstallTaskProvider
-import com.rosan.installer.domain.settings.model.Authorizer
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.domain.settings.model.config.Authorizer
+import com.rosan.installer.domain.settings.model.config.ConfigModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -33,6 +34,8 @@ class NoneAppInstallerRepoImpl(
 ) : AppInstallerRepository {
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
+    override suspend fun resolveInstallerPackageName(config: ConfigModel): String = context.packageName
+
     @SuppressLint("RequestInstallPackagesPolicy")
     override suspend fun doInstallWork(
         config: ConfigModel,
@@ -41,6 +44,7 @@ class NoneAppInstallerRepoImpl(
         sharedUserIdBlacklist: List<String>,
         sharedUserIdExemption: List<String>
     ) {
+        val allowInstallWithoutUserAction = config.allowInstallWithoutUserAction
         val result = runCatching {
             if (!context.packageManager.canRequestPackageInstalls()) {
                 val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
@@ -60,6 +64,12 @@ class NoneAppInstallerRepoImpl(
             try {
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
                 entities.firstOrNull()?.packageName?.let { params.setAppPackageName(it) }
+
+                // Check API level to avoid NoSuchMethodError on older devices
+                // Request silent update if conditions are met (requires UPDATE_PACKAGES_WITHOUT_USER_ACTION permission)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && allowInstallWithoutUserAction) {
+                    params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+                }
 
                 val sessionId = packageInstaller.createSession(params)
                 session = packageInstaller.openSession(sessionId)

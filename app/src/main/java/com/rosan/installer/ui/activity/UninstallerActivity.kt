@@ -3,7 +3,6 @@
 package com.rosan.installer.ui.activity
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import androidx.activity.ComponentActivity
@@ -21,13 +20,15 @@ import com.rosan.installer.domain.device.model.PermissionType
 import com.rosan.installer.domain.device.provider.PermissionChecker
 import com.rosan.installer.domain.session.model.ProgressEntity
 import com.rosan.installer.domain.session.repository.InstallerSessionRepository
-import com.rosan.installer.domain.settings.model.ThemeState
+import com.rosan.installer.domain.settings.model.preferences.ThemeState
 import com.rosan.installer.domain.settings.provider.ThemeStateProvider
-import com.rosan.installer.ui.common.auth.BiometricAuthBridge
+import com.rosan.installer.framework.auth.BiometricAuthBridge
 import com.rosan.installer.ui.common.permission.PermissionRequester
 import com.rosan.installer.ui.page.main.installer.InstallerPage
 import com.rosan.installer.ui.page.miuix.installer.MiuixInstallerPage
 import com.rosan.installer.ui.theme.InstallerTheme
+import com.rosan.installer.ui.theme.isPhoneDevice
+import com.rosan.installer.ui.util.requestPortraitOrientationOnPhoneSafely
 import com.rosan.installer.util.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,9 +57,6 @@ class UninstallerActivity : ComponentActivity(), KoinComponent {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
-        // Compat Navigation Bar color for Xiaomi Devices
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-            window.isNavigationBarContrastEnforced = false
         super.onCreate(savedInstanceState)
         Timber.d("UninstallerActivity onCreate.")
 
@@ -200,15 +198,19 @@ class UninstallerActivity : ComponentActivity(), KoinComponent {
                 return@setContent
             }
 
+            // Force portrait on phones only when UI is actually rendered
+            LaunchedEffect(isPhoneDevice) {
+                requestPortraitOrientationOnPhoneSafely(isPhoneDevice)
+            }
+
             InstallerTheme(
-                isExpressive = uiState.isExpressive,
                 useMiuix = uiState.useMiuix,
                 themeMode = uiState.themeMode,
                 paletteStyle = uiState.paletteStyle,
                 colorSpec = uiState.colorSpec,
                 useDynamicColor = uiState.useDynamicColor,
                 useMiuixMonet = uiState.useMiuixMonet,
-                seedColor = uiState.seedColor
+                seedColor = androidx.compose.ui.graphics.Color(uiState.seedColor)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     if (uiState.useMiuix) {

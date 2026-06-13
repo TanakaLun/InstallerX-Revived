@@ -3,12 +3,12 @@
 package com.rosan.installer.domain.engine.usecase
 
 import com.rosan.installer.core.env.DeviceConfig
-import com.rosan.installer.domain.device.model.Architecture
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.DataType
-import com.rosan.installer.domain.engine.model.PackageAnalysisResult
-import com.rosan.installer.domain.engine.model.PackageIdentityStatus
-import com.rosan.installer.domain.engine.model.SignatureMatchStatus
+import com.rosan.installer.core.device.model.Architecture
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.source.DataType
+import com.rosan.installer.domain.engine.model.packageinfo.PackageAnalysisResult
+import com.rosan.installer.domain.engine.model.packageinfo.PackageIdentityStatus
+import com.rosan.installer.domain.engine.model.packageinfo.SignatureMatchStatus
 import com.rosan.installer.domain.engine.model.state.DomainInstallState
 import com.rosan.installer.domain.engine.model.state.InstallActionType
 import com.rosan.installer.domain.engine.model.state.InstallNotice
@@ -26,7 +26,8 @@ class AnalyzeInstallStateUseCase {
         isSplitUpdateMode: Boolean,
         containerType: DataType?,
         systemArch: Architecture,
-        systemSdkInt: Int
+        systemSdkInt: Int,
+        detectXposedModule: Boolean = true
     ): DomainInstallState {
         val oldInfo = currentPackage.installedAppInfo
         val notices = mutableListOf<InstallNotice>()
@@ -102,15 +103,17 @@ class AnalyzeInstallStateUseCase {
         }
 
         // 6. Check Xposed Module Info
-        val xposedInfo = (primaryEntity as? AppEntity.BaseEntity)?.xposedInfo
-        if (xposedInfo != null) {
-            notices.add(
-                InstallNotice.Xposed(
-                    minApi = xposedInfo.minApi,
-                    targetApi = xposedInfo.targetApi,
-                    description = xposedInfo.description
+        if (detectXposedModule) {
+            val xposedInfo = (primaryEntity as? AppEntity.BaseEntity)?.xposedInfo
+            if (xposedInfo != null) {
+                notices.add(
+                    InstallNotice.Xposed(
+                        minApi = xposedInfo.minApi,
+                        targetApi = xposedInfo.targetApi,
+                        description = xposedInfo.description
+                    )
                 )
-            )
+            }
         }
 
         return DomainInstallState(actionType, notices)

@@ -2,9 +2,10 @@
 // Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.domain.settings.usecase.config
 
-import com.rosan.installer.domain.settings.model.Authorizer
-import com.rosan.installer.domain.settings.model.ConfigModel
-import com.rosan.installer.domain.settings.model.InstallerMode
+import com.rosan.installer.domain.settings.model.config.Authorizer
+import com.rosan.installer.domain.settings.model.config.ConfigModel
+import com.rosan.installer.domain.settings.model.config.InstallRequesterMode
+import com.rosan.installer.domain.settings.model.config.InstallerMode
 import com.rosan.installer.domain.settings.repository.ConfigRepository
 
 class SaveConfigUseCase(private val configRepo: ConfigRepository) {
@@ -26,7 +27,7 @@ class SaveConfigUseCase(private val configRepo: ConfigRepository) {
         if (model.authorizer == Authorizer.Customize && model.customizeAuthorizer.isEmpty()) {
             return Result.failure(SaveConfigException(Error.CUSTOM_AUTHORIZER_EMPTY))
         }
-        if (model.installRequester != null && !hasRequesterUid) {
+        if (model.installRequesterMode == InstallRequesterMode.Custom && !hasRequesterUid) {
             return Result.failure(SaveConfigException(Error.REQUESTER_NOT_FOUND))
         }
         if (model.installerMode == InstallerMode.Custom && model.installer.isNullOrBlank()) {

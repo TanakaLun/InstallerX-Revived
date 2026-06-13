@@ -13,8 +13,8 @@ import androidx.core.graphics.scale
 import com.materialkolor.quantize.QuantizerCelebi
 import com.materialkolor.score.Score
 import com.rosan.installer.data.engine.repository.AppIconRepositoryImpl.Companion.QUANTIZE_BITMAP_MAX_SIZE
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.DataEntity
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.source.DataEntity
 import com.rosan.installer.domain.engine.repository.AppIconRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -161,7 +161,13 @@ class AppIconRepositoryImpl(
         }
 
         return try {
-            deferred.await() ?: fallbackSystemIcon
+            val bitmap = deferred.await()
+
+            if (bitmap == null) {
+                conditionalRemove(cacheKey, deferred)
+            }
+
+            bitmap ?: fallbackSystemIcon
         } catch (_: CancellationException) {
             // If the *caller* was cancelled, ensureActive() rethrows immediately,
             // honouring structured concurrency.
@@ -182,7 +188,7 @@ class AppIconRepositoryImpl(
     override suspend fun extractColorFromApp(
         sessionId: String,
         packageName: String,
-        entityToInstall: AppEntity.BaseEntity?,
+        entityToInstall: AppEntity?,
         preferSystemIcon: Boolean,
         userId: Int?
     ): Int? {
@@ -192,6 +198,18 @@ class AppIconRepositoryImpl(
             targetUserId, COLOR_EXTRACT_SIZE_PX, preferSystemIcon
         )
         return iconBitmap?.extractSeedColor()
+    }
+
+    override suspend fun extractColorFromBitmap(bitmap: Bitmap?): Int? {
+        if (bitmap == null) return null
+        return try {
+            bitmap.extractSeedColor()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to extract color from bitmap")
+            null
+        }
     }
 
     override suspend fun extractColorFromDrawable(drawable: Drawable?): Int? {

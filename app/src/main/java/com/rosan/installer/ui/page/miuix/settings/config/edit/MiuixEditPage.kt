@@ -33,7 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.domain.settings.model.BiometricAuthMode
+import com.rosan.installer.domain.settings.model.config.BiometricAuthMode
 import com.rosan.installer.ui.navigation.LocalNavigator
 import com.rosan.installer.ui.page.main.settings.config.edit.EditViewAction
 import com.rosan.installer.ui.page.main.settings.config.edit.EditViewEvent
@@ -188,7 +188,7 @@ fun MiuixEditPage(
                     MiuixDataInstallModeWidget(state = state, dispatch = dispatch)
                     if (state.globalInstallerBiometricAuthMode == BiometricAuthMode.FollowConfig)
                         MiuixDataRequireBiometricAuthWidget(state = state, dispatch = dispatch)
-                    MiuixShowToastWidget(state = state, dispatch = dispatch)
+                    MiuixToastModeWidget(state = state, dispatch = dispatch)
                 }
             }
             if (isNoneActive(stateAuthorizer, globalAuthorizer))
@@ -204,8 +204,7 @@ fun MiuixEditPage(
                     MiuixInstallReasonWidget(state = state, dispatch = dispatch)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                         MiuixDataPackageSourceWidget(state = state, dispatch = dispatch)
-                    if (state.isCustomInstallRequesterEnabled)
-                        MiuixDataInstallRequesterWidget(state = state, dispatch = dispatch)
+                    MiuixDataInstallRequesterWidget(state = state, dispatch = dispatch)
                     MiuixDataDeclareInstallerWidget(state = state, dispatch = dispatch)
                     MiuixDataManualDexoptWidget(state = state, dispatch = dispatch)
                     MiuixDataAutoDeleteWidget(state = state, dispatch = dispatch)
@@ -223,6 +222,8 @@ fun MiuixEditPage(
                     MiuixDataForAllUserWidget(state = state, dispatch = dispatch)
                     MiuixDataAllowTestOnlyWidget(state = state, dispatch = dispatch)
                     MiuixDataAllowDowngradeWidget(state = state, dispatch = dispatch)
+                    MiuixDataAllowSigMismatchWidget(state = state, dispatch = dispatch)
+                    MiuixDataAllowSigUnknownWidget(state = state, dispatch = dispatch)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
                         MiuixDataBypassLowTargetSdkWidget(state = state, dispatch = dispatch)
                     MiuixDataAllowAllRequestedPermissionsWidget(state = state, dispatch = dispatch)
