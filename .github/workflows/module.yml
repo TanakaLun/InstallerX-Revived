@@ -72,7 +72,7 @@ jobs:
           TARGET_DIR="system/system_ext/priv-app/OppoPackageInstaller"
           mkdir -p "$TARGET_DIR"
           
-          ORIGINAL_APK=$(find ../app/build/outputs/apk/preview/release -name "*.apk" | head -n 1)
+          ORIGINAL_APK=$(find ../app/build/outputs/apk/ -name "*.apk" | head -n 1)
           cp "$ORIGINAL_APK" "$TARGET_DIR/OppoPackageInstaller.apk"
           
           ZIP_NAME="InxR-${{ env.NEW_VERSION }}.zip"
