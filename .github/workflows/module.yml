@@ -54,7 +54,7 @@ jobs:
 
       - name: Build APK
         run: |
-          ./gradlew assembleOnlinePreviewRelease -PAPP_ID="com.android.packageinstaller"
+          ./gradlew assemblePreviewRelease -PAPP_ID="com.android.packageinstaller"
 
       - name: Prepare Magisk Module
         id: package
